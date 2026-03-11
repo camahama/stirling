@@ -16,7 +16,6 @@ export type UiText = {
   previewAlt: string;
   startContourButton: string;
   restartContourButton: string;
-  clearContourButton: string;
   pixelAreaLabel: string;
   calibratedAreaLabel: string;
   uploadHelp: string;
@@ -45,7 +44,6 @@ export const messages: Record<Locale, UiText> = {
     previewAlt: "Förhandsvisning av uppladdad bild",
     startContourButton: "Rita kontur",
     restartContourButton: "Nollställ kontur",
-    clearContourButton: "Rensa kontur",
     pixelAreaLabel: "Area i pixlar",
     calibratedAreaLabel: "Beräknad area",
     uploadHelp: "Ladda upp ett foto av tavlan eller diagrammet som ska analyseras. Bilden bör visa hela rutnätet och hela den ritade kurvan så tydligt som möjligt.",
@@ -72,7 +70,6 @@ export const messages: Record<Locale, UiText> = {
     previewAlt: "Preview of uploaded image",
     startContourButton: "Start contour",
     restartContourButton: "Restart contour",
-    clearContourButton: "Clear contour",
     pixelAreaLabel: "Pixel area",
     calibratedAreaLabel: "Estimated area",
     uploadHelp: "Upload a photo of the whiteboard or diagram you want to analyze. The image should show the full grid and the full drawn loop as clearly as possible.",

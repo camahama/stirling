@@ -216,6 +216,13 @@ body {
   border-color: #14181c;
 }
 
+.active-tool-button {
+  background: #fff7dc;
+  color: #172026;
+  border-color: #d4ab24;
+  box-shadow: inset 0 0 0 1px rgba(212, 171, 36, 0.15);
+}
+
 button:disabled,
 .action-button:has(input:disabled),
 .language-toggle-button:disabled {

@@ -87,10 +87,6 @@ export function App() {
     setDraggingContourIndex(null);
   };
 
-  const clearContourSelection = () => {
-    resetContour();
-  };
-
   const selectCalibrationPoint = (target: Exclude<ClickTarget, null | "corner">) => {
     if (target === "max") {
       setMaxPoint(null);
@@ -305,7 +301,7 @@ export function App() {
             <div className="button-row tight-row">
               <button
                 type="button"
-                className="action-button compact-button"
+                className={`action-button compact-button ${cornerStepActive ? "active-tool-button" : ""}`}
                 onClick={startCornerSelection}
                 disabled={!sourceImageUrl || Boolean(normalizedImageUrl)}
               >
@@ -332,7 +328,7 @@ export function App() {
             <div className="button-row tight-row">
               <button
                 type="button"
-                className="action-button compact-button"
+                className={`action-button compact-button ${clickTarget === "max" ? "active-tool-button" : ""}`}
                 onClick={() => selectCalibrationPoint("max")}
                 disabled={!normalizedImageUrl}
               >
@@ -340,7 +336,7 @@ export function App() {
               </button>
               <button
                 type="button"
-                className="action-button compact-button"
+                className={`action-button compact-button ${clickTarget === "min" ? "active-tool-button" : ""}`}
                 onClick={() => selectCalibrationPoint("min")}
                 disabled={!normalizedImageUrl}
               >
@@ -376,11 +372,13 @@ export function App() {
               <HelpBadge text={t.contourHelp} />
             </div>
             <div className="button-row tight-row">
-              <button type="button" className="action-button compact-button" onClick={startContourSelection} disabled={!showCalibrationAxes}>
+              <button
+                type="button"
+                className={`action-button compact-button ${contourStepActive ? "active-tool-button" : ""}`}
+                onClick={startContourSelection}
+                disabled={!showCalibrationAxes}
+              >
                 {contourPoints.length > 0 ? t.restartContourButton : t.startContourButton}
-              </button>
-              <button type="button" className="action-button compact-button" onClick={clearContourSelection} disabled={contourPoints.length === 0}>
-                {t.clearContourButton}
               </button>
             </div>
           </div>
@@ -433,11 +431,21 @@ export function App() {
               style={{
                 display: "block",
                 width: "100%",
-                height: "auto",
-                filter: contourClosed ? "brightness(0.78) saturate(0.9)" : "none",
-                transition: "filter 140ms ease"
+                height: "auto"
               }}
             />
+
+            {contourClosed ? (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(255,255,255,0.26)",
+                  pointerEvents: "none",
+                  zIndex: 1
+                }}
+              />
+            ) : null}
 
             {cornerPoints.map((pt, idx) => (
               <div
@@ -571,20 +579,6 @@ export function App() {
                 <circle cx={maxPoint.x} cy={maxPoint.y} r="5" fill="#2e86ab" />
                 <circle cx={minPoint.x} cy={minPoint.y} r="8" fill="rgba(255,255,255,0.95)" />
                 <circle cx={minPoint.x} cy={minPoint.y} r="5" fill="#2e86ab" />
-                <text
-                  x={calibrationOverlay.origin.x + 10}
-                  y={Math.max(18, calibrationOverlay.origin.y - 12)}
-                  fill="#124559"
-                  fontSize="18"
-                  fontWeight="700"
-                  stroke="rgba(255,255,255,0.94)"
-                  strokeWidth="3.5"
-                  paintOrder="stroke"
-                >
-                  <tspan fontStyle="italic">V</tspan><tspan baselineShift="sub" fontSize="13">min</tspan>
-                  <tspan>, </tspan>
-                  <tspan fontStyle="italic">p</tspan><tspan baselineShift="sub" fontSize="13">max</tspan>
-                </text>
                 <text
                   x={(calibrationOverlay.xAxisStart.x + calibrationOverlay.xAxisEnd.x) / 2}
                   y={Math.min(imageHeight - 14, calibrationOverlay.xAxisStart.y + 40)}
@@ -784,7 +778,6 @@ type AxisTick = {
 
 type CalibrationOverlay = {
   origin: Point;
-  reference: Point;
   xAxisStart: Point;
   xAxisEnd: Point;
   yAxisStart: Point;
@@ -805,40 +798,61 @@ function buildCalibrationOverlay(input: {
 }): CalibrationOverlay {
   const marginX = Math.max(26, Math.round(input.width * 0.04));
   const marginY = Math.max(26, Math.round(input.height * 0.04));
+  const vMinValue = parseNumericInput(input.vMin);
+  const vMaxValue = parseNumericInput(input.vMax);
+  const pMinValue = parseNumericInput(input.pMin);
+  const pMaxValue = parseNumericInput(input.pMax);
 
   const origin = {
     x: marginX,
     y: input.height - marginY
   };
-  const reference = {
+  const topReference = {
     x: input.width - marginX,
     y: marginY
   };
+  const widthPixels = input.bottomRight.x - input.topLeft.x;
+  const heightPixels = input.bottomRight.y - input.topLeft.y;
+  const xAxisStartValue =
+    Math.abs(widthPixels) > 1e-9
+      ? vMinValue + (origin.x - input.topLeft.x) * ((vMaxValue - vMinValue) / widthPixels)
+      : vMinValue;
+  const xAxisEndValue =
+    Math.abs(widthPixels) > 1e-9
+      ? vMinValue + (topReference.x - input.topLeft.x) * ((vMaxValue - vMinValue) / widthPixels)
+      : vMaxValue;
+  const yAxisTopValue =
+    Math.abs(heightPixels) > 1e-9
+      ? pMaxValue + (topReference.y - input.topLeft.y) * ((pMinValue - pMaxValue) / heightPixels)
+      : pMaxValue;
+  const yAxisBottomValue =
+    Math.abs(heightPixels) > 1e-9
+      ? pMaxValue + (origin.y - input.topLeft.y) * ((pMinValue - pMaxValue) / heightPixels)
+      : pMinValue;
 
   const xTicks = buildNumericAxisTicks({
     axis: "x",
     start: origin.x,
-    end: reference.x,
+    end: topReference.x,
     fixed: origin.y,
-    valueStart: parseNumericInput(input.vMin),
-    valueEnd: parseNumericInput(input.vMax)
+    valueStart: xAxisStartValue,
+    valueEnd: xAxisEndValue
   });
   const yTicks = buildNumericAxisTicks({
     axis: "y",
-    start: reference.y,
+    start: topReference.y,
     end: origin.y,
     fixed: origin.x,
-    valueStart: parseNumericInput(input.pMax),
-    valueEnd: parseNumericInput(input.pMin)
+    valueStart: yAxisTopValue,
+    valueEnd: yAxisBottomValue
   });
 
   return {
     origin,
-    reference,
     xAxisStart: origin,
-    xAxisEnd: { x: reference.x, y: origin.y },
+    xAxisEnd: { x: topReference.x, y: origin.y },
     yAxisStart: origin,
-    yAxisEnd: { x: origin.x, y: reference.y },
+    yAxisEnd: { x: origin.x, y: topReference.y },
     xTicks,
     yTicks
   };
