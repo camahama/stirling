@@ -430,7 +430,13 @@ export function App() {
               src={previewImageUrl}
               alt={t.previewAlt}
               onClick={onPreviewClick}
-              style={{ display: "block", width: "100%", height: "auto" }}
+              style={{
+                display: "block",
+                width: "100%",
+                height: "auto",
+                filter: contourClosed ? "brightness(0.78) saturate(0.9)" : "none",
+                transition: "filter 140ms ease"
+              }}
             />
 
             {cornerPoints.map((pt, idx) => (
@@ -814,16 +820,16 @@ function buildCalibrationOverlay(input: {
     start: origin.x,
     end: reference.x,
     fixed: origin.y,
-    minValue: parseNumericInput(input.vMin),
-    maxValue: parseNumericInput(input.vMax)
+    valueStart: parseNumericInput(input.vMin),
+    valueEnd: parseNumericInput(input.vMax)
   });
   const yTicks = buildNumericAxisTicks({
     axis: "y",
-    start: origin.y,
-    end: reference.y,
+    start: reference.y,
+    end: origin.y,
     fixed: origin.x,
-    minValue: parseNumericInput(input.pMin),
-    maxValue: parseNumericInput(input.pMax)
+    valueStart: parseNumericInput(input.pMax),
+    valueEnd: parseNumericInput(input.pMin)
   });
 
   return {
@@ -843,19 +849,17 @@ function buildNumericAxisTicks(input: {
   start: number;
   end: number;
   fixed: number;
-  minValue: number;
-  maxValue: number;
+  valueStart: number;
+  valueEnd: number;
 }): AxisTick[] {
-  const steps = chooseTickCount(input.minValue, input.maxValue);
-  const ticks: AxisTick[] = [];
+  const tickValues = createNiceTickValues(input.valueStart, input.valueEnd, input.axis === "x" ? 5 : 4);
 
-  for (let i = 0; i <= steps; i += 1) {
-    const t = steps === 0 ? 0 : i / steps;
-    const value = input.minValue + (input.maxValue - input.minValue) * t;
+  return tickValues.map((value) => {
+    const t = valueToInterpolation(value, input.valueStart, input.valueEnd);
 
     if (input.axis === "x") {
       const x = input.start + (input.end - input.start) * t;
-      ticks.push({
+      return {
         x1: x,
         y1: input.fixed - 8,
         x2: x,
@@ -863,39 +867,20 @@ function buildNumericAxisTicks(input: {
         label: formatTickValue(value),
         labelX: x,
         labelY: input.fixed + 26
-      });
-    } else {
-      const y = input.start + (input.end - input.start) * t;
-      ticks.push({
-        x1: input.fixed - 8,
-        y1: y,
-        x2: input.fixed + 8,
-        y2: y,
-        label: formatTickValue(input.maxValue - (value - input.minValue)),
-        labelX: input.fixed - 14,
-        labelY: y + 5
-      });
+      };
     }
-  }
 
-  return ticks;
-}
-
-function chooseTickCount(minValue: number, maxValue: number): number {
-  const span = Math.abs(maxValue - minValue);
-  if (!Number.isFinite(span) || span <= 0) {
-    return 2;
-  }
-  if (span <= 1) {
-    return 4;
-  }
-  if (span <= 5) {
-    return 5;
-  }
-  if (span <= 20) {
-    return 4;
-  }
-  return 5;
+    const y = input.start + (input.end - input.start) * t;
+    return {
+      x1: input.fixed - 8,
+      y1: y,
+      x2: input.fixed + 8,
+      y2: y,
+      label: formatTickValue(value),
+      labelX: input.fixed - 14,
+      labelY: y + 5
+    };
+  });
 }
 
 function formatTickValue(value: number): string {
@@ -909,6 +894,74 @@ function formatTickValue(value: number): string {
     return value.toFixed(1);
   }
   return value.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function valueToInterpolation(value: number, startValue: number, endValue: number): number {
+  const span = endValue - startValue;
+  if (!Number.isFinite(span) || Math.abs(span) < 1e-9) {
+    return 0;
+  }
+  return (value - startValue) / span;
+}
+
+function createNiceTickValues(startValue: number, endValue: number, maxTickCount: number): number[] {
+  if (!Number.isFinite(startValue) || !Number.isFinite(endValue)) {
+    return [0];
+  }
+
+  if (Math.abs(endValue - startValue) < 1e-9) {
+    return [startValue];
+  }
+
+  const ascending = endValue > startValue;
+  const minValue = ascending ? startValue : endValue;
+  const maxValue = ascending ? endValue : startValue;
+  const rawStep = (maxValue - minValue) / Math.max(1, maxTickCount - 1);
+  const niceStep = getNiceStep(rawStep);
+
+  let firstTick = Math.ceil(minValue / niceStep) * niceStep;
+  let lastTick = Math.floor(maxValue / niceStep) * niceStep;
+
+  const ticks: number[] = [];
+  ticks.push(startValue);
+
+  for (let value = firstTick; value <= lastTick + niceStep * 0.5; value += niceStep) {
+    if (!isCloseToAny(value, [startValue, endValue], niceStep * 0.25)) {
+      ticks.push(roundToNicePrecision(value, niceStep));
+    }
+  }
+
+  ticks.push(endValue);
+  const uniqueTicks = Array.from(new Set(ticks.map((value) => roundToNicePrecision(value, niceStep))));
+  uniqueTicks.sort((a, b) => ascending ? a - b : b - a);
+  return uniqueTicks;
+}
+
+function getNiceStep(rawStep: number): number {
+  const exponent = Math.floor(Math.log10(Math.abs(rawStep)));
+  const fraction = Math.abs(rawStep) / 10 ** exponent;
+
+  let niceFraction = 1;
+  if (fraction <= 1) {
+    niceFraction = 1;
+  } else if (fraction <= 2) {
+    niceFraction = 2;
+  } else if (fraction <= 5) {
+    niceFraction = 5;
+  } else {
+    niceFraction = 10;
+  }
+
+  return niceFraction * 10 ** exponent;
+}
+
+function roundToNicePrecision(value: number, step: number): number {
+  const decimals = Math.max(0, -Math.floor(Math.log10(step)) + 1);
+  return Number(value.toFixed(Math.min(6, decimals)));
+}
+
+function isCloseToAny(value: number, candidates: number[], tolerance: number): boolean {
+  return candidates.some((candidate) => Math.abs(candidate - value) <= tolerance);
 }
 
 function formatLocaleNumber(value: number, locale: Locale, maximumFractionDigits: number): string {
