@@ -225,6 +225,20 @@ export function App() {
       })
     : null;
   const showCalibrationAxes = maxPoint && minPoint && !clickTarget;
+  const imageWidth = previewImageRef.current?.naturalWidth || 1;
+  const imageHeight = previewImageRef.current?.naturalHeight || 1;
+  const calibrationOverlay = showCalibrationAxes
+    ? buildCalibrationOverlay({
+        width: imageWidth,
+        height: imageHeight,
+        topLeft: maxPoint,
+        bottomRight: minPoint,
+        vMin,
+        vMax,
+        pMin,
+        pMax
+      })
+    : null;
 
   return (
     <main className="app-shell">
@@ -343,12 +357,12 @@ export function App() {
               <input id="v-max" type="number" value={vMax} onChange={(event) => setVMax(event.target.value)} />
             </div>
             <div className="field-row compact-field">
-              <label htmlFor="p-max"><Variable symbol="p" subscript="max" /> <Unit text="10^5 Pa" /></label>
-              <input id="p-max" type="number" value={pMax} onChange={(event) => setPMax(event.target.value)} />
-            </div>
-            <div className="field-row compact-field">
               <label htmlFor="p-min"><Variable symbol="p" subscript="min" /> <Unit text="10^5 Pa" /></label>
               <input id="p-min" type="number" value={pMin} onChange={(event) => setPMin(event.target.value)} />
+            </div>
+            <div className="field-row compact-field">
+              <label htmlFor="p-max"><Variable symbol="p" subscript="max" /> <Unit text="10^5 Pa" /></label>
+              <input id="p-max" type="number" value={pMax} onChange={(event) => setPMax(event.target.value)} />
             </div>
           </div>
         </div>
@@ -360,7 +374,7 @@ export function App() {
               <HelpBadge text={t.contourHelp} />
             </div>
             <div className="button-row tight-row">
-              <button type="button" className="action-button compact-button" onClick={startContourSelection} disabled={!normalizedImageUrl}>
+              <button type="button" className="action-button compact-button" onClick={startContourSelection} disabled={!showCalibrationAxes}>
                 {contourPoints.length > 0 ? t.restartContourButton : t.startContourButton}
               </button>
               <button type="button" className="action-button compact-button" onClick={clearContourSelection} disabled={contourPoints.length === 0}>
@@ -460,7 +474,7 @@ export function App() {
               </svg>
             ) : null}
 
-            {showCalibrationAxes ? (
+            {showCalibrationAxes && calibrationOverlay ? (
               <svg
                 style={{
                   position: "absolute",
@@ -471,86 +485,88 @@ export function App() {
                   pointerEvents: "none",
                   zIndex: 7
                 }}
-                width={previewImageRef.current?.naturalWidth || 1}
-                height={previewImageRef.current?.naturalHeight || 1}
-                viewBox={`0 0 ${previewImageRef.current?.naturalWidth || 1} ${previewImageRef.current?.naturalHeight || 1}`}
+                width={imageWidth}
+                height={imageHeight}
+                viewBox={`0 0 ${imageWidth} ${imageHeight}`}
               >
                 <line
-                  x1={maxPoint.x}
-                  y1={minPoint.y}
-                  x2={minPoint.x}
-                  y2={minPoint.y}
+                  x1={calibrationOverlay.xAxisStart.x}
+                  y1={calibrationOverlay.xAxisStart.y}
+                  x2={calibrationOverlay.xAxisEnd.x}
+                  y2={calibrationOverlay.xAxisEnd.y}
                   stroke="#2e86ab"
                   strokeWidth="2.5"
                 />
                 <line
-                  x1={maxPoint.x}
-                  y1={minPoint.y}
-                  x2={maxPoint.x}
-                  y2={maxPoint.y}
+                  x1={calibrationOverlay.yAxisStart.x}
+                  y1={calibrationOverlay.yAxisStart.y}
+                  x2={calibrationOverlay.yAxisEnd.x}
+                  y2={calibrationOverlay.yAxisEnd.y}
                   stroke="#2e86ab"
                   strokeWidth="2.5"
                 />
-                {buildAxisTicks(maxPoint.x, minPoint.x, minPoint.y, "x").map((tick, index) => (
+                {calibrationOverlay.xTicks.map((tick, index) => (
                   <g key={`x-tick-${index}`}>
                     <line x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} stroke="#2e86ab" strokeWidth="1.5" />
-                    {tick.label ? (
-                      <text x={tick.labelX} y={tick.labelY} fill="#124559" fontSize="15" textAnchor="middle">
-                        {tick.label}
-                      </text>
-                    ) : null}
+                    <text x={tick.labelX} y={tick.labelY} fill="#124559" fontSize="15" textAnchor="middle">
+                      {tick.label}
+                    </text>
                   </g>
                 ))}
-                {buildAxisTicks(maxPoint.y, minPoint.y, maxPoint.x, "y").map((tick, index) => (
+                {calibrationOverlay.yTicks.map((tick, index) => (
                   <g key={`y-tick-${index}`}>
                     <line x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} stroke="#2e86ab" strokeWidth="1.5" />
-                    {tick.label ? (
-                      <text x={tick.labelX} y={tick.labelY} fill="#124559" fontSize="15" textAnchor="end">
-                        {tick.label}
-                      </text>
-                    ) : null}
+                    <text x={tick.labelX} y={tick.labelY} fill="#124559" fontSize="15" textAnchor="end">
+                      {tick.label}
+                    </text>
                   </g>
                 ))}
                 <circle cx={maxPoint.x} cy={maxPoint.y} r="6" fill="#2e86ab" />
                 <circle cx={minPoint.x} cy={minPoint.y} r="6" fill="#2e86ab" />
                 <text
-                  x={maxPoint.x + 10}
-                  y={Math.max(18, maxPoint.y - 10)}
+                  x={calibrationOverlay.origin.x + 10}
+                  y={Math.max(18, calibrationOverlay.origin.y - 12)}
                   fill="#124559"
                   fontSize="18"
                   fontWeight="600"
                 >
-                  (Vmin, pmax)
+                  <tspan fontStyle="italic">V</tspan><tspan baselineShift="sub" fontSize="13">min</tspan>
+                  <tspan>, </tspan>
+                  <tspan fontStyle="italic">p</tspan><tspan baselineShift="sub" fontSize="13">max</tspan>
                 </text>
                 <text
-                  x={(maxPoint.x + minPoint.x) / 2}
-                  y={Math.min((previewImageRef.current?.naturalHeight || 1) - 14, minPoint.y + 34)}
+                  x={(calibrationOverlay.xAxisStart.x + calibrationOverlay.xAxisEnd.x) / 2}
+                  y={Math.min(imageHeight - 14, calibrationOverlay.xAxisStart.y + 40)}
                   fill="#124559"
                   fontSize="18"
                   fontWeight="700"
                   textAnchor="middle"
                 >
-                  V (cm3)
+                  <tspan fontStyle="italic">V</tspan>
+                  <tspan dx="6">(cm</tspan><tspan baselineShift="super" fontSize="13">3</tspan><tspan>)</tspan>
                 </text>
                 <text
-                  x={Math.max(20, maxPoint.x - 28)}
-                  y={(maxPoint.y + minPoint.y) / 2}
+                  x={Math.max(20, calibrationOverlay.yAxisStart.x - 34)}
+                  y={(calibrationOverlay.yAxisStart.y + calibrationOverlay.yAxisEnd.y) / 2}
                   fill="#124559"
                   fontSize="18"
                   fontWeight="700"
                   textAnchor="middle"
-                  transform={`rotate(-90 ${Math.max(20, maxPoint.x - 28)} ${(maxPoint.y + minPoint.y) / 2})`}
+                  transform={`rotate(-90 ${Math.max(20, calibrationOverlay.yAxisStart.x - 34)} ${(calibrationOverlay.yAxisStart.y + calibrationOverlay.yAxisEnd.y) / 2})`}
                 >
-                  p (10^5 Pa)
+                  <tspan fontStyle="italic">p</tspan>
+                  <tspan dx="6">(10</tspan><tspan baselineShift="super" fontSize="13">5</tspan><tspan> Pa)</tspan>
                 </text>
                 <text
-                  x={Math.min((previewImageRef.current?.naturalWidth || 1) - 160, minPoint.x - 150)}
-                  y={Math.min((previewImageRef.current?.naturalHeight || 1) - 12, minPoint.y + 24)}
+                  x={Math.min(imageWidth - 120, calibrationOverlay.reference.x - 110)}
+                  y={Math.min(imageHeight - 12, calibrationOverlay.reference.y + 24)}
                   fill="#124559"
                   fontSize="18"
                   fontWeight="600"
                 >
-                  (Vmax, pmin)
+                  <tspan fontStyle="italic">V</tspan><tspan baselineShift="sub" fontSize="13">max</tspan>
+                  <tspan>, </tspan>
+                  <tspan fontStyle="italic">p</tspan><tspan baselineShift="sub" fontSize="13">min</tspan>
                 </text>
               </svg>
             ) : null}
@@ -715,43 +731,144 @@ type AxisTick = {
   y1: number;
   x2: number;
   y2: number;
-  label?: string;
-  labelX?: number;
-  labelY?: number;
+  label: string;
+  labelX: number;
+  labelY: number;
 };
 
-function buildAxisTicks(start: number, end: number, fixed: number, axis: "x" | "y"): AxisTick[] {
-  const steps = 4;
+type CalibrationOverlay = {
+  origin: Point;
+  reference: Point;
+  xAxisStart: Point;
+  xAxisEnd: Point;
+  yAxisStart: Point;
+  yAxisEnd: Point;
+  xTicks: AxisTick[];
+  yTicks: AxisTick[];
+};
+
+function buildCalibrationOverlay(input: {
+  width: number;
+  height: number;
+  topLeft: Point;
+  bottomRight: Point;
+  vMin: string;
+  vMax: string;
+  pMin: string;
+  pMax: string;
+}): CalibrationOverlay {
+  const marginX = Math.max(26, Math.round(input.width * 0.04));
+  const marginY = Math.max(26, Math.round(input.height * 0.04));
+
+  const origin = {
+    x: marginX,
+    y: input.height - marginY
+  };
+  const reference = {
+    x: input.width - marginX,
+    y: marginY
+  };
+
+  const xTicks = buildNumericAxisTicks({
+    axis: "x",
+    start: origin.x,
+    end: reference.x,
+    fixed: origin.y,
+    minValue: Number(input.vMin),
+    maxValue: Number(input.vMax)
+  });
+  const yTicks = buildNumericAxisTicks({
+    axis: "y",
+    start: origin.y,
+    end: reference.y,
+    fixed: origin.x,
+    minValue: Number(input.pMin),
+    maxValue: Number(input.pMax)
+  });
+
+  return {
+    origin,
+    reference,
+    xAxisStart: origin,
+    xAxisEnd: { x: reference.x, y: origin.y },
+    yAxisStart: origin,
+    yAxisEnd: { x: origin.x, y: reference.y },
+    xTicks,
+    yTicks
+  };
+}
+
+function buildNumericAxisTicks(input: {
+  axis: "x" | "y";
+  start: number;
+  end: number;
+  fixed: number;
+  minValue: number;
+  maxValue: number;
+}): AxisTick[] {
+  const steps = chooseTickCount(input.minValue, input.maxValue);
   const ticks: AxisTick[] = [];
 
   for (let i = 0; i <= steps; i += 1) {
-    const t = i / steps;
-    if (axis === "x") {
-      const x = start + (end - start) * t;
+    const t = steps === 0 ? 0 : i / steps;
+    const value = input.minValue + (input.maxValue - input.minValue) * t;
+
+    if (input.axis === "x") {
+      const x = input.start + (input.end - input.start) * t;
       ticks.push({
         x1: x,
-        y1: fixed - 8,
+        y1: input.fixed - 8,
         x2: x,
-        y2: fixed + 8,
-        label: i === 0 ? "Vmin" : i === steps ? "Vmax" : undefined,
+        y2: input.fixed + 8,
+        label: formatTickValue(value),
         labelX: x,
-        labelY: fixed + 26
+        labelY: input.fixed + 26
       });
     } else {
-      const y = start + (end - start) * t;
+      const y = input.start + (input.end - input.start) * t;
       ticks.push({
-        x1: fixed - 8,
+        x1: input.fixed - 8,
         y1: y,
-        x2: fixed + 8,
+        x2: input.fixed + 8,
         y2: y,
-        label: i === 0 ? "pmax" : i === steps ? "pmin" : undefined,
-        labelX: fixed - 14,
+        label: formatTickValue(input.maxValue - (value - input.minValue)),
+        labelX: input.fixed - 14,
         labelY: y + 5
       });
     }
   }
 
   return ticks;
+}
+
+function chooseTickCount(minValue: number, maxValue: number): number {
+  const span = Math.abs(maxValue - minValue);
+  if (!Number.isFinite(span) || span <= 0) {
+    return 2;
+  }
+  if (span <= 1) {
+    return 4;
+  }
+  if (span <= 5) {
+    return 5;
+  }
+  if (span <= 20) {
+    return 4;
+  }
+  return 5;
+}
+
+function formatTickValue(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  if (Math.abs(value) >= 100 || Number.isInteger(value)) {
+    return value.toFixed(0);
+  }
+  if (Math.abs(value) >= 10) {
+    return value.toFixed(1);
+  }
+  return value.toFixed(2).replace(/\.?0+$/, "");
 }
 
 function orderCornersForQuad(points: Point[]): Point[] {

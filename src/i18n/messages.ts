@@ -39,7 +39,7 @@ export const messages: Record<Locale, UiText> = {
     step4Title: "4. Rita kontur",
     uploadLabel: "Välj bild",
     startCornersButton: "Välj hörn",
-    restartCornersButton: "Borja om",
+    restartCornersButton: "Börja om",
     rectifyButton: "Räta upp bilden",
     noImageText: "Ingen bild laddad ännu.",
     previewAlt: "Förhandsvisning av uppladdad bild",
