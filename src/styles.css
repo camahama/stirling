@@ -1,0 +1,101 @@
+:root {
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #172026;
+  background: radial-gradient(circle at 20% 20%, #eef9ff 0%, #f4f2e9 40%, #f8f8f8 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.app-shell {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.hero {
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: #ffffffcc;
+  border: 1px solid #d7e2e8;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.hero p {
+  margin: 0.5rem 0 0;
+}
+
+.panel {
+  padding: 1rem;
+  border-radius: 16px;
+  background: #ffffffdd;
+  border: 1px solid #d7e2e8;
+}
+
+.controls {
+  display: grid;
+  gap: 1rem;
+}
+
+.field-row {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.field-row input,
+.field-row select,
+.button-row button {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #9fb5c0;
+  border-radius: 10px;
+  font: inherit;
+}
+
+.button-row {
+  display: flex;
+  gap: 0.7rem;
+}
+
+.button-row button {
+  cursor: pointer;
+  background: #ecf5fa;
+}
+
+.preview img {
+  max-width: 100%;
+  border-radius: 12px;
+  border: 1px solid #d7e2e8;
+}
+
+@media (min-width: 840px) {
+  .app-shell {
+    grid-template-columns: 1.2fr 1fr;
+  }
+
+  .hero,
+  .controls,
+  .results,
+  .calculations {
+    grid-column: 1;
+  }
+
+  .preview {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    align-self: start;
+  }
+}
