@@ -2,6 +2,8 @@
 .vscode/
 __pycache__/
 *.pyc
+.ipynb_checkpoints/
+*.ipynb
 .env
 node_modules/
 dist/
