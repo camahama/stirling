@@ -1033,7 +1033,7 @@ function buildNumericAxisTicks(input: {
       x2: input.fixed + 8,
       y2: y,
       label: formatTickValue(value),
-      labelX: input.fixed - 24,
+      labelX: input.fixed - 14,
       labelY: y + 5
     };
   });
