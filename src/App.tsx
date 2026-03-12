@@ -272,6 +272,10 @@ export function App() {
     ? buildCalibrationOverlay({
         width: plotWidth,
         height: plotHeight,
+        imageLeft: plotPadding.left,
+        imageTop: plotPadding.top,
+        imageRight: plotPadding.left + imageWidth,
+        imageBottom: plotPadding.top + imageHeight,
         topLeft: { x: maxPoint.x + plotPadding.left, y: maxPoint.y + plotPadding.top },
         bottomRight: { x: minPoint.x + plotPadding.left, y: minPoint.y + plotPadding.top },
         vMin: appliedScale.vMin,
@@ -915,6 +919,10 @@ type CalibrationOverlay = {
 function buildCalibrationOverlay(input: {
   width: number;
   height: number;
+  imageLeft: number;
+  imageTop: number;
+  imageRight: number;
+  imageBottom: number;
   topLeft: Point;
   bottomRight: Point;
   vMin: string;
@@ -922,29 +930,26 @@ function buildCalibrationOverlay(input: {
   pMin: string;
   pMax: string;
 }): CalibrationOverlay {
-  const marginX = Math.max(28, Math.round(input.width * 0.03));
-  const marginY = Math.max(24, Math.round(input.height * 0.03));
-  const axisInset = Math.max(18, Math.round(input.width * 0.02));
   const vMinValue = parseNumericInput(input.vMin);
   const vMaxValue = parseNumericInput(input.vMax);
   const pMinValue = parseNumericInput(input.pMin);
   const pMaxValue = parseNumericInput(input.pMax);
 
   const xAxisStart = {
-    x: marginX + axisInset,
-    y: input.height - marginY
+    x: input.imageLeft,
+    y: input.imageBottom
   };
   const xAxisEnd = {
-    x: input.width - marginX,
-    y: input.height - marginY
+    x: input.imageRight,
+    y: input.imageBottom
   };
   const yAxisStart = {
-    x: marginX + axisInset,
-    y: input.height - marginY
+    x: input.imageLeft,
+    y: input.imageBottom
   };
   const yAxisEnd = {
-    x: marginX + axisInset,
-    y: marginY
+    x: input.imageLeft,
+    y: input.imageTop
   };
   const widthPixels = input.bottomRight.x - input.topLeft.x;
   const heightPixels = input.bottomRight.y - input.topLeft.y;
