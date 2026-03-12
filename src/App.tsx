@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import type { ChangeEvent, MouseEvent } from "react";
+import type { ChangeEvent, MouseEvent, PointerEvent as ReactPointerEvent, SyntheticEvent } from "react";
 import { messages, type Locale } from "./i18n/messages";
 import { normalizeWhiteboardImage, type Point as OutlinePoint } from "./utils/normalizeImage";
 
@@ -55,7 +55,7 @@ export function App() {
   const hasImageSize = Boolean(imageSize && imageSize.x > 1 && imageSize.y > 1);
   const plotPadding = useMemo(
     () => ({
-      left: Math.max(36, Math.round(imageWidth * 0.04)),
+      left: Math.max(54, Math.round(imageWidth * 0.055)),
       right: Math.max(10, Math.round(imageWidth * 0.012)),
       top: Math.max(28, Math.round(imageHeight * 0.035)),
       bottom: Math.max(72, Math.round(imageHeight * 0.08))
@@ -184,13 +184,17 @@ export function App() {
     setContourPoints([...contourPoints, point]);
   };
 
-  const onContourPointMouseDown = (event: MouseEvent<HTMLDivElement>, index: number) => {
+  const onContourPointPointerDown = (event: ReactPointerEvent<HTMLDivElement>, index: number) => {
+    event.preventDefault();
     event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
     setDraggingContourIndex(index);
   };
 
-  const onCornerPointMouseDown = (event: MouseEvent<HTMLDivElement>, index: number) => {
+  const onCornerPointPointerDown = (event: ReactPointerEvent<HTMLDivElement>, index: number) => {
+    event.preventDefault();
     event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
     setDraggingCornerIndex(index);
   };
 
@@ -206,7 +210,7 @@ export function App() {
     setContourPoints(next);
   };
 
-  const updateDraggingContourPoint = (event: MouseEvent<HTMLDivElement>) => {
+  const updateDraggingContourPoint = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (draggingContourIndex === null || !previewImageRef.current) {
       return;
     }
@@ -217,7 +221,7 @@ export function App() {
     setContourPoints(next);
   };
 
-  const updateDraggingCornerPoint = (event: MouseEvent<HTMLDivElement>) => {
+  const updateDraggingCornerPoint = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (draggingCornerIndex === null || !previewImageRef.current) {
       return;
     }
@@ -294,7 +298,7 @@ export function App() {
     });
   };
 
-  const onPreviewImageLoad = (event: ChangeEvent<HTMLImageElement> | MouseEvent<HTMLImageElement> | React.SyntheticEvent<HTMLImageElement>) => {
+  const onPreviewImageLoad = (event: ChangeEvent<HTMLImageElement> | MouseEvent<HTMLImageElement> | SyntheticEvent<HTMLImageElement>) => {
     const target = event.currentTarget;
     const nextWidth = target.naturalWidth;
     const nextHeight = target.naturalHeight;
@@ -500,15 +504,19 @@ export function App() {
                 maxWidth: "92%",
                 aspectRatio: `${plotWidth} / ${plotHeight}`
               }}
-              onMouseMove={(event) => {
+              onPointerMove={(event) => {
                 updateDraggingContourPoint(event);
                 updateDraggingCornerPoint(event);
               }}
-              onMouseUp={() => {
+              onPointerUp={() => {
                 setDraggingContourIndex(null);
                 setDraggingCornerIndex(null);
               }}
-              onMouseLeave={() => {
+              onPointerLeave={() => {
+                setDraggingContourIndex(null);
+                setDraggingCornerIndex(null);
+              }}
+              onPointerCancel={() => {
                 setDraggingContourIndex(null);
                 setDraggingCornerIndex(null);
               }}
@@ -554,7 +562,7 @@ export function App() {
                     transform: "translate(-50%, -50%)",
                     zIndex: 10
                   }}
-                  onMouseDown={(event) => onCornerPointMouseDown(event, idx)}
+                  onPointerDown={(event) => onCornerPointPointerDown(event, idx)}
                 />
               ))}
 
@@ -696,7 +704,7 @@ export function App() {
                     zIndex: 11,
                     pointerEvents: contourClosed ? "auto" : "none"
                   }}
-                  onMouseDown={contourClosed ? (event) => onContourPointMouseDown(event, idx) : undefined}
+                  onPointerDown={contourClosed ? (event) => onContourPointPointerDown(event, idx) : undefined}
                 />
               ))}
 
@@ -995,8 +1003,8 @@ function buildCalibrationOverlay(input: {
     xAxisEnd,
     yAxisStart,
     yAxisEnd,
-    xLabel: { x: xAxisEnd.x + 34, y: xAxisEnd.y + 34 },
-    yLabel: { x: yAxisEnd.x - 36, y: yAxisEnd.y + 18 },
+    xLabel: { x: xAxisEnd.x + 7, y: xAxisEnd.y + 55 },
+    yLabel: { x: yAxisEnd.x - 45, y: yAxisEnd.y + 0 },
     xTicks,
     yTicks,
     tickFontSize,

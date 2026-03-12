@@ -382,6 +382,11 @@ button:disabled,
   position: absolute;
 }
 
+.image-wrap,
+.image-plane {
+  touch-action: none;
+}
+
 .image-wrap.calibration-active img,
 .image-wrap.corners-active img,
 .image-wrap.guide-active img {
