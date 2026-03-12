@@ -929,8 +929,8 @@ function buildCalibrationOverlay(input: {
     xAxisEnd,
     yAxisStart,
     yAxisEnd,
-    xLabel: { x: xAxisEnd.x - 4, y: xAxisEnd.y + 24 },
-    yLabel: { x: yAxisEnd.x - 18, y: yAxisEnd.y + 18 },
+    xLabel: { x: xAxisEnd.x - 18, y: xAxisEnd.y + 30 },
+    yLabel: { x: yAxisEnd.x - 6, y: yAxisEnd.y + 30 },
     xTicks,
     yTicks
   };
