@@ -58,7 +58,7 @@ export function App() {
       left: Math.max(40, Math.round(imageWidth * 0.045)),
       right: Math.max(10, Math.round(imageWidth * 0.012)),
       top: Math.max(8, Math.round(imageHeight * 0.01)),
-      bottom: Math.max(72, Math.round(imageHeight * 0.08))
+      bottom: Math.max(120, Math.round(imageHeight * 0.14))
     }),
     [imageWidth, imageHeight]
   );
