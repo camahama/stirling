@@ -24,6 +24,12 @@ export function App() {
   const [vMin, setVMin] = useState<string>("0");
   const [pMax, setPMax] = useState<string>("");
   const [pMin, setPMin] = useState<string>("");
+  const [appliedScale, setAppliedScale] = useState({
+    vMax: "1",
+    vMin: "0",
+    pMax: "",
+    pMin: ""
+  });
   const [maxPoint, setMaxPoint] = useState<Point | null>(null);
   const [minPoint, setMinPoint] = useState<Point | null>(null);
   const [clickTarget, setClickTarget] = useState<ClickTarget>(null);
@@ -194,6 +200,12 @@ export function App() {
     setVMin("0");
     setPMax("");
     setPMin("");
+    setAppliedScale({
+      vMax: "1",
+      vMin: "0",
+      pMax: "",
+      pMin: ""
+    });
     setMaxPoint(null);
     setMinPoint(null);
     setClickTarget(null);
@@ -212,10 +224,10 @@ export function App() {
   const pixelArea = contourClosed ? polygonArea(contourPoints) : 0;
   const calibratedArea = contourClosed
     ? getCalibratedAreaMilliJoules(contourPoints, {
-        vMin,
-        vMax,
-        pMin,
-        pMax,
+        vMin: appliedScale.vMin,
+        vMax: appliedScale.vMax,
+        pMin: appliedScale.pMin,
+        pMax: appliedScale.pMax,
         topLeft: maxPoint,
         bottomRight: minPoint
       })
@@ -231,12 +243,21 @@ export function App() {
         height: imageHeight,
         topLeft: maxPoint,
         bottomRight: minPoint,
-        vMin,
-        vMax,
-        pMin,
-        pMax
+        vMin: appliedScale.vMin,
+        vMax: appliedScale.vMax,
+        pMin: appliedScale.pMin,
+        pMax: appliedScale.pMax
       })
     : null;
+
+  const onApplyScale = () => {
+    setAppliedScale({
+      vMin,
+      vMax,
+      pMin,
+      pMax
+    });
+  };
 
   return (
     <main className="app-shell">
@@ -345,23 +366,33 @@ export function App() {
             </div>
           </div>
 
-          <div className="calibration-grid">
-            <div className="field-row compact-field">
-              <label htmlFor="v-min"><Variable symbol="V" subscript="min" /> <Unit text="cm3" /></label>
-              <input id="v-min" type="text" inputMode="decimal" value={vMin} onChange={(event) => setVMin(event.target.value)} />
+          <div className="calibration-row">
+            <div className="calibration-grid">
+              <div className="field-row compact-field">
+                <label htmlFor="v-min"><Variable symbol="V" subscript="min" /> <Unit text="cm3" /></label>
+                <input id="v-min" type="text" inputMode="decimal" value={vMin} onChange={(event) => setVMin(event.target.value)} />
+              </div>
+              <div className="field-row compact-field">
+                <label htmlFor="v-max"><Variable symbol="V" subscript="max" /> <Unit text="cm3" /></label>
+                <input id="v-max" type="text" inputMode="decimal" value={vMax} onChange={(event) => setVMax(event.target.value)} />
+              </div>
+              <div className="field-row compact-field">
+                <label htmlFor="p-min"><Variable symbol="p" subscript="min" /> <Unit text="10^5 Pa" /></label>
+                <input id="p-min" type="text" inputMode="decimal" value={pMin} onChange={(event) => setPMin(event.target.value)} />
+              </div>
+              <div className="field-row compact-field">
+                <label htmlFor="p-max"><Variable symbol="p" subscript="max" /> <Unit text="10^5 Pa" /></label>
+                <input id="p-max" type="text" inputMode="decimal" value={pMax} onChange={(event) => setPMax(event.target.value)} />
+              </div>
             </div>
-            <div className="field-row compact-field">
-              <label htmlFor="v-max"><Variable symbol="V" subscript="max" /> <Unit text="cm3" /></label>
-              <input id="v-max" type="text" inputMode="decimal" value={vMax} onChange={(event) => setVMax(event.target.value)} />
-            </div>
-            <div className="field-row compact-field">
-              <label htmlFor="p-min"><Variable symbol="p" subscript="min" /> <Unit text="10^5 Pa" /></label>
-              <input id="p-min" type="text" inputMode="decimal" value={pMin} onChange={(event) => setPMin(event.target.value)} />
-            </div>
-            <div className="field-row compact-field">
-              <label htmlFor="p-max"><Variable symbol="p" subscript="max" /> <Unit text="10^5 Pa" /></label>
-              <input id="p-max" type="text" inputMode="decimal" value={pMax} onChange={(event) => setPMax(event.target.value)} />
-            </div>
+            <button
+              type="button"
+              className={`action-button compact-button calibration-apply-button ${isScaleInputReady(vMin, vMax, pMin, pMax) ? "ready-button" : ""}`}
+              onClick={onApplyScale}
+              disabled={!normalizedImageUrl || !isScaleInputReady(vMin, vMax, pMin, pMax)}
+            >
+              {t.updateScaleButton}
+            </button>
           </div>
         </div>
 
@@ -505,6 +536,19 @@ export function App() {
                 height={imageHeight}
                 viewBox={`0 0 ${imageWidth} ${imageHeight}`}
               >
+                <defs>
+                  <marker
+                    id="axis-arrow"
+                    markerWidth="10"
+                    markerHeight="10"
+                    refX="7"
+                    refY="5"
+                    orient="auto"
+                    markerUnits="strokeWidth"
+                  >
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#2e86ab" />
+                  </marker>
+                </defs>
                 <line
                   x1={calibrationOverlay.xAxisStart.x}
                   y1={calibrationOverlay.xAxisStart.y}
@@ -520,6 +564,7 @@ export function App() {
                   y2={calibrationOverlay.xAxisEnd.y}
                   stroke="#2e86ab"
                   strokeWidth="2.5"
+                  markerEnd="url(#axis-arrow)"
                 />
                 <line
                   x1={calibrationOverlay.yAxisStart.x}
@@ -536,6 +581,7 @@ export function App() {
                   y2={calibrationOverlay.yAxisEnd.y}
                   stroke="#2e86ab"
                   strokeWidth="2.5"
+                  markerEnd="url(#axis-arrow)"
                 />
                 {calibrationOverlay.xTicks.map((tick, index) => (
                   <g key={`x-tick-${index}`}>
@@ -580,12 +626,12 @@ export function App() {
                 <circle cx={minPoint.x} cy={minPoint.y} r="8" fill="rgba(255,255,255,0.95)" />
                 <circle cx={minPoint.x} cy={minPoint.y} r="5" fill="#2e86ab" />
                 <text
-                  x={(calibrationOverlay.xAxisStart.x + calibrationOverlay.xAxisEnd.x) / 2}
-                  y={Math.min(imageHeight - 14, calibrationOverlay.xAxisStart.y + 40)}
+                  x={calibrationOverlay.xLabel.x}
+                  y={Math.min(imageHeight - 10, calibrationOverlay.xLabel.y)}
                   fill="#124559"
                   fontSize="20"
                   fontWeight="700"
-                  textAnchor="middle"
+                  textAnchor="end"
                   stroke="rgba(255,255,255,0.94)"
                   strokeWidth="4"
                   paintOrder="stroke"
@@ -594,13 +640,12 @@ export function App() {
                   <tspan dx="6">(cm</tspan><tspan baselineShift="super" fontSize="13">3</tspan><tspan>)</tspan>
                 </text>
                 <text
-                  x={Math.max(18, calibrationOverlay.yAxisStart.x - 48)}
-                  y={(calibrationOverlay.yAxisStart.y + calibrationOverlay.yAxisEnd.y) / 2}
+                  x={calibrationOverlay.yLabel.x}
+                  y={calibrationOverlay.yLabel.y}
                   fill="#124559"
                   fontSize="20"
                   fontWeight="700"
-                  textAnchor="middle"
-                  transform={`rotate(-90 ${Math.max(18, calibrationOverlay.yAxisStart.x - 48)} ${(calibrationOverlay.yAxisStart.y + calibrationOverlay.yAxisEnd.y) / 2})`}
+                  textAnchor="start"
                   stroke="rgba(255,255,255,0.94)"
                   strokeWidth="4"
                   paintOrder="stroke"
@@ -777,11 +822,12 @@ type AxisTick = {
 };
 
 type CalibrationOverlay = {
-  origin: Point;
   xAxisStart: Point;
   xAxisEnd: Point;
   yAxisStart: Point;
   yAxisEnd: Point;
+  xLabel: Point;
+  yLabel: Point;
   xTicks: AxisTick[];
   yTicks: AxisTick[];
 };
@@ -796,63 +842,73 @@ function buildCalibrationOverlay(input: {
   pMin: string;
   pMax: string;
 }): CalibrationOverlay {
-  const marginX = Math.max(42, Math.round(input.width * 0.055));
-  const marginY = Math.max(26, Math.round(input.height * 0.04));
+  const marginX = Math.max(28, Math.round(input.width * 0.03));
+  const marginY = Math.max(24, Math.round(input.height * 0.03));
+  const axisInset = Math.max(18, Math.round(input.width * 0.02));
   const vMinValue = parseNumericInput(input.vMin);
   const vMaxValue = parseNumericInput(input.vMax);
   const pMinValue = parseNumericInput(input.pMin);
   const pMaxValue = parseNumericInput(input.pMax);
 
-  const origin = {
-    x: marginX,
+  const xAxisStart = {
+    x: marginX + axisInset,
     y: input.height - marginY
   };
-  const topReference = {
+  const xAxisEnd = {
     x: input.width - marginX,
+    y: input.height - marginY
+  };
+  const yAxisStart = {
+    x: marginX + axisInset,
+    y: input.height - marginY
+  };
+  const yAxisEnd = {
+    x: marginX + axisInset,
     y: marginY
   };
   const widthPixels = input.bottomRight.x - input.topLeft.x;
   const heightPixels = input.bottomRight.y - input.topLeft.y;
   const xAxisStartValue =
     Math.abs(widthPixels) > 1e-9
-      ? vMinValue + (origin.x - input.topLeft.x) * ((vMaxValue - vMinValue) / widthPixels)
+      ? vMinValue + (xAxisStart.x - input.topLeft.x) * ((vMaxValue - vMinValue) / widthPixels)
       : vMinValue;
   const xAxisEndValue =
     Math.abs(widthPixels) > 1e-9
-      ? vMinValue + (topReference.x - input.topLeft.x) * ((vMaxValue - vMinValue) / widthPixels)
+      ? vMinValue + (xAxisEnd.x - input.topLeft.x) * ((vMaxValue - vMinValue) / widthPixels)
       : vMaxValue;
   const yAxisTopValue =
     Math.abs(heightPixels) > 1e-9
-      ? pMaxValue + (topReference.y - input.topLeft.y) * ((pMinValue - pMaxValue) / heightPixels)
+      ? pMaxValue + (yAxisEnd.y - input.topLeft.y) * ((pMinValue - pMaxValue) / heightPixels)
       : pMaxValue;
   const yAxisBottomValue =
     Math.abs(heightPixels) > 1e-9
-      ? pMaxValue + (origin.y - input.topLeft.y) * ((pMinValue - pMaxValue) / heightPixels)
+      ? pMaxValue + (yAxisStart.y - input.topLeft.y) * ((pMinValue - pMaxValue) / heightPixels)
       : pMinValue;
 
   const xTicks = buildNumericAxisTicks({
     axis: "x",
-    start: origin.x,
-    end: topReference.x,
-    fixed: origin.y,
+    start: xAxisStart.x,
+    end: xAxisEnd.x,
+    fixed: xAxisStart.y,
     valueStart: xAxisStartValue,
     valueEnd: xAxisEndValue
   });
   const yTicks = buildNumericAxisTicks({
     axis: "y",
-    start: topReference.y,
-    end: origin.y,
-    fixed: origin.x,
+    start: yAxisEnd.y,
+    end: yAxisStart.y,
+    fixed: yAxisStart.x,
     valueStart: yAxisTopValue,
     valueEnd: yAxisBottomValue
   });
 
   return {
-    origin,
-    xAxisStart: origin,
-    xAxisEnd: { x: topReference.x, y: origin.y },
-    yAxisStart: origin,
-    yAxisEnd: { x: origin.x, y: topReference.y },
+    xAxisStart,
+    xAxisEnd,
+    yAxisStart,
+    yAxisEnd,
+    xLabel: { x: xAxisEnd.x - 2, y: xAxisEnd.y + 18 },
+    yLabel: { x: yAxisEnd.x - 14, y: yAxisEnd.y + 4 },
     xTicks,
     yTicks
   };
@@ -868,11 +924,8 @@ function buildNumericAxisTicks(input: {
 }): AxisTick[] {
   const tickValues = createNiceTickValues(input.valueStart, input.valueEnd, input.axis === "x" ? 5 : 4);
 
-  return tickValues.map((value, index) => {
+  return tickValues.map((value) => {
     const t = valueToInterpolation(value, input.valueStart, input.valueEnd);
-    const suppressLabel =
-      (input.axis === "x" && index === 0) ||
-      (input.axis === "y" && index === tickValues.length - 1);
 
     if (input.axis === "x") {
       const x = input.start + (input.end - input.start) * t;
@@ -881,7 +934,7 @@ function buildNumericAxisTicks(input: {
         y1: input.fixed - 8,
         x2: x,
         y2: input.fixed + 8,
-        label: suppressLabel ? "" : formatTickValue(value),
+        label: formatTickValue(value),
         labelX: x,
         labelY: input.fixed + 26
       };
@@ -893,8 +946,8 @@ function buildNumericAxisTicks(input: {
       y1: y,
       x2: input.fixed + 8,
       y2: y,
-      label: suppressLabel ? "" : formatTickValue(value),
-      labelX: input.fixed - 20,
+      label: formatTickValue(value),
+      labelX: input.fixed - 24,
       labelY: y + 5
     };
   });
@@ -940,18 +993,20 @@ function createNiceTickValues(startValue: number, endValue: number, maxTickCount
   let lastTick = Math.floor(maxValue / niceStep) * niceStep;
 
   const ticks: number[] = [];
-  ticks.push(startValue);
 
   for (let value = firstTick; value <= lastTick + niceStep * 0.5; value += niceStep) {
-    if (!isCloseToAny(value, [startValue, endValue], niceStep * 0.25)) {
-      ticks.push(roundToNicePrecision(value, niceStep));
+    const rounded = roundToNicePrecision(value, niceStep);
+    if (rounded > minValue + niceStep * 0.2 && rounded < maxValue - niceStep * 0.2) {
+      ticks.push(rounded);
     }
   }
 
-  ticks.push(endValue);
   const uniqueTicks = Array.from(new Set(ticks.map((value) => roundToNicePrecision(value, niceStep))));
   uniqueTicks.sort((a, b) => ascending ? a - b : b - a);
-  return uniqueTicks;
+  if (uniqueTicks.length >= 2) {
+    return uniqueTicks;
+  }
+  return [roundToNicePrecision((minValue + maxValue) / 2, niceStep)];
 }
 
 function getNiceStep(rawStep: number): number {
@@ -975,10 +1030,6 @@ function getNiceStep(rawStep: number): number {
 function roundToNicePrecision(value: number, step: number): number {
   const decimals = Math.max(0, -Math.floor(Math.log10(step)) + 1);
   return Number(value.toFixed(Math.min(6, decimals)));
-}
-
-function isCloseToAny(value: number, candidates: number[], tolerance: number): boolean {
-  return candidates.some((candidate) => Math.abs(candidate - value) <= tolerance);
 }
 
 function formatLocaleNumber(value: number, locale: Locale, maximumFractionDigits: number): string {
@@ -1169,4 +1220,8 @@ function getCalibratedAreaMilliJoules(points: Point[], calibration: CalibrationI
 
 function parseNumericInput(value: string): number {
   return Number(value.replace(",", ".").trim());
+}
+
+function isScaleInputReady(vMin: string, vMax: string, pMin: string, pMax: string): boolean {
+  return [vMin, vMax, pMin, pMax].every((value) => Number.isFinite(parseNumericInput(value)));
 }

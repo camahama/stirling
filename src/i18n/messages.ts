@@ -12,6 +12,7 @@ export type UiText = {
   startCornersButton: string;
   restartCornersButton: string;
   rectifyButton: string;
+  updateScaleButton: string;
   noImageText: string;
   previewAlt: string;
   startContourButton: string;
@@ -40,6 +41,7 @@ export const messages: Record<Locale, UiText> = {
     startCornersButton: "Välj hörn",
     restartCornersButton: "Börja om",
     rectifyButton: "Räta upp bilden",
+    updateScaleButton: "Uppdatera skala",
     noImageText: "Ingen bild laddad ännu.",
     previewAlt: "Förhandsvisning av uppladdad bild",
     startContourButton: "Rita kontur",
@@ -66,6 +68,7 @@ export const messages: Record<Locale, UiText> = {
     startCornersButton: "Start corner selection",
     restartCornersButton: "Start over",
     rectifyButton: "Rectify image",
+    updateScaleButton: "Update scale",
     noImageText: "No image uploaded yet.",
     previewAlt: "Preview of uploaded image",
     startContourButton: "Start contour",
