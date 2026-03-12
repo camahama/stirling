@@ -846,7 +846,7 @@ export function App() {
                   paintOrder="stroke"
                 >
                     <tspan fontStyle="italic">V</tspan>
-                    <tspan dx="6">/ cm</tspan><tspan baselineShift="super" fontSize={calibrationOverlay.axisSuperscriptFontSize}>3</tspan>
+                    <tspan dx="6">/ cm³</tspan>
                   </text>
                   <text
                     x={calibrationOverlay.yLabel.x}
@@ -860,7 +860,7 @@ export function App() {
                   paintOrder="stroke"
                 >
                     <tspan fontStyle="italic">p</tspan>
-                    <tspan dx="6">/ 10</tspan><tspan baselineShift="super" fontSize={calibrationOverlay.axisSuperscriptFontSize}>5</tspan><tspan> Pa</tspan>
+                    <tspan dx="6">/ 10⁵ Pa</tspan>
                   </text>
                 </svg>
               ) : null}
@@ -921,7 +921,6 @@ type CalibrationOverlay = {
   yTicks: AxisTick[];
   tickFontSize: number;
   axisLabelFontSize: number;
-  axisSuperscriptFontSize: number;
 };
 
 function buildCalibrationOverlay(input: {
@@ -996,7 +995,6 @@ function buildCalibrationOverlay(input: {
   });
   const tickFontSize = Math.max(20, Math.min(34, input.width * 0.02));
   const axisLabelFontSize = Math.max(20, Math.min(36, input.width * 0.02));
-  const axisSuperscriptFontSize = Math.max(13, Math.min(24, input.width * 0.013));
 
   return {
     xAxisStart,
@@ -1008,8 +1006,7 @@ function buildCalibrationOverlay(input: {
     xTicks,
     yTicks,
     tickFontSize,
-    axisLabelFontSize,
-    axisSuperscriptFontSize
+    axisLabelFontSize
   };
 }
 
@@ -1201,19 +1198,11 @@ function Variable({ symbol, subscript }: { symbol: string; subscript: string }) 
 
 function Unit({ text }: { text: string }) {
   if (text === "cm3") {
-    return (
-      <span className="unit-label">
-        / cm<sup>3</sup>
-      </span>
-    );
+    return <span className="unit-label">/ cm³</span>;
   }
 
   if (text === "10^5 Pa") {
-    return (
-      <span className="unit-label">
-        / 10<sup>5</sup> Pa
-      </span>
-    );
+    return <span className="unit-label">/ 10⁵ Pa</span>;
   }
 
   return <span className="unit-label">/ {text}</span>;
