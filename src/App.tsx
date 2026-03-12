@@ -55,10 +55,10 @@ export function App() {
   const hasImageSize = Boolean(imageSize && imageSize.x > 1 && imageSize.y > 1);
   const plotPadding = useMemo(
     () => ({
-      left: Math.max(40, Math.round(imageWidth * 0.045)),
+      left: Math.max(36, Math.round(imageWidth * 0.04)),
       right: Math.max(10, Math.round(imageWidth * 0.012)),
-      top: Math.max(8, Math.round(imageHeight * 0.01)),
-      bottom: Math.max(120, Math.round(imageHeight * 0.14))
+      top: Math.max(28, Math.round(imageHeight * 0.035)),
+      bottom: Math.max(72, Math.round(imageHeight * 0.08))
     }),
     [imageWidth, imageHeight]
   );
@@ -995,8 +995,8 @@ function buildCalibrationOverlay(input: {
     xAxisEnd,
     yAxisStart,
     yAxisEnd,
-    xLabel: { x: xAxisEnd.x + 30, y: xAxisEnd.y + 60 },
-    yLabel: { x: yAxisEnd.x - 45, y: yAxisEnd.y + 3 },
+    xLabel: { x: xAxisEnd.x + 34, y: xAxisEnd.y + 34 },
+    yLabel: { x: yAxisEnd.x - 36, y: yAxisEnd.y + 18 },
     xTicks,
     yTicks,
     tickFontSize,
