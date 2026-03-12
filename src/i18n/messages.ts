@@ -31,7 +31,7 @@ export type UiText = {
 export const messages: Record<Locale, UiText> = {
   sv: {
     appTitle: "Stirling Whiteboard Area",
-    appSubtitle: "Stegvis arbetsflode for bilduppladdning, normalisering, kalibrering och mätning",
+    appSubtitle: "Stegvis arbetsflöde for bilduppladdning, normalisering, kalibrering och mätning",
     languageLabel: "Sprak",
     step1Title: "1. Ladda upp en bild av din whiteboard",
     step2Title: "2. Räta upp bilden",

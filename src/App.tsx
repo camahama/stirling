@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
 import { messages, type Locale } from "./i18n/messages";
 import { normalizeWhiteboardImage, type Point as OutlinePoint } from "./utils/normalizeImage";
@@ -15,7 +15,6 @@ const CLOSE_RADIUS = 18;
 const SEGMENT_HIT_DISTANCE = 14;
 
 export function App() {
-  const fileInputId = useId();
   const [locale, setLocale] = useState<Locale>("sv");
   const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null);
   const [normalizedImageUrl, setNormalizedImageUrl] = useState<string | null>(null);
@@ -44,6 +43,7 @@ export function App() {
   const [draggingContourIndex, setDraggingContourIndex] = useState<number | null>(null);
 
   const previewImageRef = useRef<HTMLImageElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const t = useMemo(() => messages[locale], [locale]);
   const previewImageUrl = normalizedImageUrl ?? sourceImageUrl;
@@ -315,15 +315,19 @@ export function App() {
             </div>
             <div className="inline-upload">
               <input
-                id={fileInputId}
+                ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={onImageSelected}
                 className="visually-hidden"
               />
-              <label className="action-button compact-button prominent-button" htmlFor={fileInputId}>
+              <button
+                type="button"
+                className="action-button compact-button prominent-button"
+                onClick={() => fileInputRef.current?.click()}
+              >
                 {t.uploadLabel}
-              </label>
+              </button>
             </div>
           </div>
         </div>
@@ -926,8 +930,8 @@ function buildCalibrationOverlay(input: {
     xAxisEnd,
     yAxisStart,
     yAxisEnd,
-    xLabel: { x: xAxisEnd.x + 8, y: xAxisEnd.y + 40 },
-    yLabel: { x: yAxisEnd.x - 30, y: yAxisEnd.y + 6 },
+    xLabel: { x: xAxisEnd.x + 48, y: xAxisEnd.y + 50 },
+    yLabel: { x: yAxisEnd.x - 30, y: yAxisEnd.y - 9 },
     xTicks,
     yTicks
   };
