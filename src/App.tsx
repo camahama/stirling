@@ -49,6 +49,26 @@ export function App() {
   const previewImageUrl = normalizedImageUrl ?? sourceImageUrl;
   const outlinePoints = contourClosed ? contourPoints : [];
   const orderedCornerPoints = cornerPoints.length === 4 ? orderCornersForQuad(cornerPoints) : cornerPoints;
+  const imageWidth = previewImageRef.current?.naturalWidth || 1;
+  const imageHeight = previewImageRef.current?.naturalHeight || 1;
+  const plotPadding = useMemo(
+    () => ({
+      left: Math.max(56, Math.round(imageWidth * 0.075)),
+      right: Math.max(18, Math.round(imageWidth * 0.02)),
+      top: Math.max(18, Math.round(imageHeight * 0.02)),
+      bottom: Math.max(52, Math.round(imageHeight * 0.065))
+    }),
+    [imageWidth, imageHeight]
+  );
+  const plotWidth = imageWidth + plotPadding.left + plotPadding.right;
+  const plotHeight = imageHeight + plotPadding.top + plotPadding.bottom;
+  const plotAreaStyle = {
+    position: "absolute" as const,
+    left: `${(plotPadding.left / plotWidth) * 100}%`,
+    top: `${(plotPadding.top / plotHeight) * 100}%`,
+    width: `${(imageWidth / plotWidth) * 100}%`,
+    height: `${(imageHeight / plotHeight) * 100}%`
+  };
 
   const onImageSelected = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -235,14 +255,12 @@ export function App() {
   const formattedCalibratedArea =
     calibratedArea !== null ? formatLocaleNumber(calibratedArea, locale, 3) : "--";
   const showCalibrationAxes = maxPoint && minPoint && !clickTarget;
-  const imageWidth = previewImageRef.current?.naturalWidth || 1;
-  const imageHeight = previewImageRef.current?.naturalHeight || 1;
   const calibrationOverlay = showCalibrationAxes
     ? buildCalibrationOverlay({
-        width: imageWidth,
-        height: imageHeight,
-        topLeft: maxPoint,
-        bottomRight: minPoint,
+        width: plotWidth,
+        height: plotHeight,
+        topLeft: { x: maxPoint.x + plotPadding.left, y: maxPoint.y + plotPadding.top },
+        bottomRight: { x: minPoint.x + plotPadding.left, y: minPoint.y + plotPadding.top },
         vMin: appliedScale.vMin,
         vMax: appliedScale.vMax,
         pMin: appliedScale.pMin,
@@ -440,7 +458,12 @@ export function App() {
         {previewImageUrl ? (
           <div
             className={`image-wrap ${(clickTarget ? "calibration-active" : "") + (cornerStepActive ? " corners-active" : "") + (contourStepActive ? " guide-active" : "")}`}
-            style={{ position: "relative" }}
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: "92%",
+              aspectRatio: `${plotWidth} / ${plotHeight}`
+            }}
             onMouseMove={(event) => {
               updateDraggingContourPoint(event);
               updateDraggingCornerPoint(event);
@@ -454,72 +477,217 @@ export function App() {
               setDraggingCornerIndex(null);
             }}
           >
-            <img
-              ref={previewImageRef}
-              src={previewImageUrl}
-              alt={t.previewAlt}
-              onClick={onPreviewClick}
-              style={{
-                display: "block",
-                width: "100%",
-                height: "auto"
-              }}
-            />
-
-            {contourClosed ? (
-              <div
+            <div className="image-plane" style={plotAreaStyle}>
+              <img
+                ref={previewImageRef}
+                src={previewImageUrl}
+                alt={t.previewAlt}
+                onClick={onPreviewClick}
                 style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "rgba(255,255,255,0.26)",
-                  pointerEvents: "none",
-                  zIndex: 1
-                }}
-              />
-            ) : null}
-
-            {cornerPoints.map((pt, idx) => (
-              <div
-                key={`corner-${idx}`}
-                style={{
-                  position: "absolute",
-                  left: `${(pt.x / (previewImageRef.current?.naturalWidth || 1)) * 100}%`,
-                  top: `${(pt.y / (previewImageRef.current?.naturalHeight || 1)) * 100}%`,
-                  width: 10,
-                  height: 10,
-                  background: "red",
-                  borderRadius: idx === 0 ? "30%" : "50%",
-                  cursor: "grab",
-                  transform: "translate(-50%, -50%)",
-                  zIndex: 10
-                }}
-                onMouseDown={(event) => onCornerPointMouseDown(event, idx)}
-              />
-            ))}
-
-            {cornerPoints.length === 4 ? (
-              <svg
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
+                  display: "block",
                   width: "100%",
-                  height: "100%",
-                  pointerEvents: "none",
-                  zIndex: 9
+                  height: "100%"
                 }}
-                width={previewImageRef.current?.naturalWidth || 1}
-                height={previewImageRef.current?.naturalHeight || 1}
-                viewBox={`0 0 ${previewImageRef.current?.naturalWidth || 1} ${previewImageRef.current?.naturalHeight || 1}`}
-              >
-                <polygon
-                  points={orderedCornerPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-                  fill="rgba(255,0,0,0.1)"
-                  stroke="red"
-                  strokeWidth="3"
+              />
+
+              {contourClosed ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: "rgba(255,255,255,0.26)",
+                    pointerEvents: "none",
+                    zIndex: 1
+                  }}
                 />
-              </svg>
-            ) : null}
+              ) : null}
+
+              {cornerPoints.map((pt, idx) => (
+                <div
+                  key={`corner-${idx}`}
+                  style={{
+                    position: "absolute",
+                    left: `${(pt.x / imageWidth) * 100}%`,
+                    top: `${(pt.y / imageHeight) * 100}%`,
+                    width: 10,
+                    height: 10,
+                    background: "red",
+                    borderRadius: idx === 0 ? "30%" : "50%",
+                    cursor: "grab",
+                    transform: "translate(-50%, -50%)",
+                    zIndex: 10
+                  }}
+                  onMouseDown={(event) => onCornerPointMouseDown(event, idx)}
+                />
+              ))}
+
+              {cornerPoints.length === 4 ? (
+                <svg
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    pointerEvents: "none",
+                    zIndex: 9
+                  }}
+                  width={imageWidth}
+                  height={imageHeight}
+                  viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+                >
+                  <polygon
+                    points={orderedCornerPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                    fill="rgba(255,0,0,0.1)"
+                    stroke="red"
+                    strokeWidth="3"
+                  />
+                </svg>
+              ) : null}
+
+              {!showCalibrationAxes && maxPoint ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: `${(maxPoint.x / imageWidth) * 100}%`,
+                    top: `${(maxPoint.y / imageHeight) * 100}%`,
+                    width: 10,
+                    height: 10,
+                    background: "#2e86ab",
+                    border: "2px solid #f4f8fb",
+                    borderRadius: "50%",
+                    transform: "translate(-50%, -50%)",
+                    zIndex: 8
+                  }}
+                />
+              ) : null}
+
+              {!showCalibrationAxes && minPoint ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: `${(minPoint.x / imageWidth) * 100}%`,
+                    top: `${(minPoint.y / imageHeight) * 100}%`,
+                    width: 10,
+                    height: 10,
+                    background: "#2e86ab",
+                    border: "2px solid #f4f8fb",
+                    borderRadius: "50%",
+                    transform: "translate(-50%, -50%)",
+                    zIndex: 8
+                  }}
+                />
+              ) : null}
+
+              {contourClosed ? (
+                <svg
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    zIndex: 10
+                  }}
+                  width={imageWidth}
+                  height={imageHeight}
+                  viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+                >
+                  {contourPoints.map((pt, idx) => {
+                    const next = contourPoints[(idx + 1) % contourPoints.length];
+                    return (
+                      <line
+                        key={`segment-hit-${idx}`}
+                        x1={pt.x}
+                        y1={pt.y}
+                        x2={next.x}
+                        y2={next.y}
+                        stroke="transparent"
+                        strokeWidth="18"
+                        onClick={(event) => onContourSegmentClick(event, idx)}
+                      />
+                    );
+                  })}
+                  <polygon
+                    points={contourPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                    fill="rgba(255,176,0,0.08)"
+                    stroke="rgba(255,176,0,0.7)"
+                    strokeWidth="3"
+                    strokeDasharray="8 6"
+                    pointerEvents="none"
+                  />
+                </svg>
+              ) : contourPoints.length >= 2 ? (
+                <svg
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    pointerEvents: "none",
+                    zIndex: 10
+                  }}
+                  width={imageWidth}
+                  height={imageHeight}
+                  viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+                >
+                  <polyline
+                    points={contourPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                    fill="none"
+                    stroke="rgba(255,176,0,0.9)"
+                    strokeWidth="3"
+                    strokeDasharray="8 6"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : null}
+
+              {contourPoints.map((pt, idx) => (
+                <div
+                  key={`contour-${idx}`}
+                  style={{
+                    position: "absolute",
+                    left: `${(pt.x / imageWidth) * 100}%`,
+                    top: `${(pt.y / imageHeight) * 100}%`,
+                    width: 10,
+                    height: 10,
+                    background: "#ffb000",
+                    borderRadius: idx === 0 ? "30%" : "50%",
+                    cursor: contourClosed ? "grab" : "default",
+                    transform: "translate(-50%, -50%)",
+                    zIndex: 11,
+                    pointerEvents: contourClosed ? "auto" : "none"
+                  }}
+                  onMouseDown={contourClosed ? (event) => onContourPointMouseDown(event, idx) : undefined}
+                />
+              ))}
+
+              {!cornerStepActive && outlinePoints.length >= 3 ? (
+                <svg
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    pointerEvents: "none",
+                    zIndex: 8
+                  }}
+                  width={imageWidth}
+                  height={imageHeight}
+                  viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+                >
+                  <polygon
+                    points={outlinePoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                    fill="none"
+                    stroke="#d62828"
+                    strokeWidth="4"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : null}
+            </div>
 
             {showCalibrationAxes && calibrationOverlay ? (
               <svg
@@ -532,9 +700,9 @@ export function App() {
                   pointerEvents: "none",
                   zIndex: 7
                 }}
-                width={imageWidth}
-                height={imageHeight}
-                viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+                width={plotWidth}
+                height={plotHeight}
+                viewBox={`0 0 ${plotWidth} ${plotHeight}`}
               >
                 <defs>
                   <marker
@@ -627,7 +795,7 @@ export function App() {
                 <circle cx={minPoint.x} cy={minPoint.y} r="5" fill="#2e86ab" />
                 <text
                   x={calibrationOverlay.xLabel.x}
-                  y={Math.min(imageHeight - 10, calibrationOverlay.xLabel.y)}
+                  y={Math.min(plotHeight - 10, calibrationOverlay.xLabel.y)}
                   fill="#124559"
                   fontSize="20"
                   fontWeight="700"
@@ -656,148 +824,6 @@ export function App() {
               </svg>
             ) : null}
 
-            {!showCalibrationAxes && maxPoint ? (
-              <div
-                style={{
-                  position: "absolute",
-                  left: `${(maxPoint.x / (previewImageRef.current?.naturalWidth || 1)) * 100}%`,
-                  top: `${(maxPoint.y / (previewImageRef.current?.naturalHeight || 1)) * 100}%`,
-                  width: 10,
-                  height: 10,
-                  background: "#2e86ab",
-                  border: "2px solid #f4f8fb",
-                  borderRadius: "50%",
-                  transform: "translate(-50%, -50%)",
-                  zIndex: 8
-                }}
-              />
-            ) : null}
-
-            {!showCalibrationAxes && minPoint ? (
-              <div
-                style={{
-                  position: "absolute",
-                  left: `${(minPoint.x / (previewImageRef.current?.naturalWidth || 1)) * 100}%`,
-                  top: `${(minPoint.y / (previewImageRef.current?.naturalHeight || 1)) * 100}%`,
-                  width: 10,
-                  height: 10,
-                  background: "#2e86ab",
-                  border: "2px solid #f4f8fb",
-                  borderRadius: "50%",
-                  transform: "translate(-50%, -50%)",
-                  zIndex: 8
-                }}
-              />
-            ) : null}
-
-            {contourClosed ? (
-              <svg
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  width: "100%",
-                  height: "100%",
-                  zIndex: 10
-                }}
-                width={previewImageRef.current?.naturalWidth || 1}
-                height={previewImageRef.current?.naturalHeight || 1}
-                viewBox={`0 0 ${previewImageRef.current?.naturalWidth || 1} ${previewImageRef.current?.naturalHeight || 1}`}
-              >
-                {contourPoints.map((pt, idx) => {
-                  const next = contourPoints[(idx + 1) % contourPoints.length];
-                  return (
-                    <line
-                      key={`segment-hit-${idx}`}
-                      x1={pt.x}
-                      y1={pt.y}
-                      x2={next.x}
-                      y2={next.y}
-                      stroke="transparent"
-                      strokeWidth="18"
-                      onClick={(event) => onContourSegmentClick(event, idx)}
-                    />
-                  );
-                })}
-                <polygon
-                  points={contourPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-                  fill="rgba(255,176,0,0.08)"
-                  stroke="rgba(255,176,0,0.7)"
-                  strokeWidth="3"
-                  strokeDasharray="8 6"
-                  pointerEvents="none"
-                />
-              </svg>
-            ) : contourPoints.length >= 2 ? (
-              <svg
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  width: "100%",
-                  height: "100%",
-                  pointerEvents: "none",
-                  zIndex: 10
-                }}
-                width={previewImageRef.current?.naturalWidth || 1}
-                height={previewImageRef.current?.naturalHeight || 1}
-                viewBox={`0 0 ${previewImageRef.current?.naturalWidth || 1} ${previewImageRef.current?.naturalHeight || 1}`}
-              >
-                <polyline
-                  points={contourPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-                  fill="none"
-                  stroke="rgba(255,176,0,0.9)"
-                  strokeWidth="3"
-                  strokeDasharray="8 6"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            ) : null}
-
-            {contourPoints.map((pt, idx) => (
-              <div
-                key={`contour-${idx}`}
-                style={{
-                  position: "absolute",
-                  left: `${(pt.x / (previewImageRef.current?.naturalWidth || 1)) * 100}%`,
-                  top: `${(pt.y / (previewImageRef.current?.naturalHeight || 1)) * 100}%`,
-                  width: 10,
-                  height: 10,
-                  background: "#ffb000",
-                  borderRadius: idx === 0 ? "30%" : "50%",
-                  cursor: contourClosed ? "grab" : "default",
-                  transform: "translate(-50%, -50%)",
-                  zIndex: 11,
-                  pointerEvents: contourClosed ? "auto" : "none"
-                }}
-                onMouseDown={contourClosed ? (event) => onContourPointMouseDown(event, idx) : undefined}
-              />
-            ))}
-
-            {!cornerStepActive && outlinePoints.length >= 3 ? (
-              <svg
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  width: "100%",
-                  height: "100%",
-                  pointerEvents: "none",
-                  zIndex: 8
-                }}
-                width={previewImageRef.current?.naturalWidth || 1}
-                height={previewImageRef.current?.naturalHeight || 1}
-                viewBox={`0 0 ${previewImageRef.current?.naturalWidth || 1} ${previewImageRef.current?.naturalHeight || 1}`}
-              >
-                <polygon
-                  points={outlinePoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-                  fill="none"
-                  stroke="#d62828"
-                  strokeWidth="4"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            ) : null}
           </div>
         ) : (
           <p>{t.noImageText}</p>
