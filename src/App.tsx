@@ -86,6 +86,15 @@ export function App() {
     event.target.value = "";
   };
 
+  const onUploadButtonClick = () => {
+    if (!fileInputRef.current) {
+      return;
+    }
+
+    fileInputRef.current.value = "";
+    fileInputRef.current.click();
+  };
+
   const onNormalizeImage = () => {
     if (!sourceImageUrl || cornerPoints.length !== 4) {
       return;
@@ -324,7 +333,7 @@ export function App() {
               <button
                 type="button"
                 className="action-button compact-button prominent-button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={onUploadButtonClick}
               >
                 {t.uploadLabel}
               </button>
@@ -930,8 +939,8 @@ function buildCalibrationOverlay(input: {
     xAxisEnd,
     yAxisStart,
     yAxisEnd,
-    xLabel: { x: xAxisEnd.x + 48, y: xAxisEnd.y + 50 },
-    yLabel: { x: yAxisEnd.x - 30, y: yAxisEnd.y - 9 },
+    xLabel: { x: xAxisEnd.x + 28, y: xAxisEnd.y + 55 },
+    yLabel: { x: yAxisEnd.x - 30, y: yAxisEnd.y + 0 },
     xTicks,
     yTicks
   };
