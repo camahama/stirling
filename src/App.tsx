@@ -789,13 +789,9 @@ export function App() {
                     </text>
                   </g>
                 ))}
-                <circle cx={maxPoint.x} cy={maxPoint.y} r="8" fill="rgba(255,255,255,0.95)" />
-                <circle cx={maxPoint.x} cy={maxPoint.y} r="5" fill="#2e86ab" />
-                <circle cx={minPoint.x} cy={minPoint.y} r="8" fill="rgba(255,255,255,0.95)" />
-                <circle cx={minPoint.x} cy={minPoint.y} r="5" fill="#2e86ab" />
                 <text
                   x={calibrationOverlay.xLabel.x}
-                  y={Math.min(plotHeight - 10, calibrationOverlay.xLabel.y)}
+                  y={Math.min(plotHeight - 2, calibrationOverlay.xLabel.y)}
                   fill="#124559"
                   fontSize="20"
                   fontWeight="700"
@@ -805,11 +801,11 @@ export function App() {
                   paintOrder="stroke"
                 >
                   <tspan fontStyle="italic">V</tspan>
-                  <tspan dx="6">(cm</tspan><tspan baselineShift="super" fontSize="13">3</tspan><tspan>)</tspan>
+                  <tspan dx="6">/ cm</tspan><tspan baselineShift="super" fontSize="13">3</tspan>
                 </text>
                 <text
                   x={calibrationOverlay.yLabel.x}
-                  y={calibrationOverlay.yLabel.y}
+                  y={calibrationOverlay.yLabel.y - 10}
                   fill="#124559"
                   fontSize="20"
                   fontWeight="700"
@@ -819,7 +815,7 @@ export function App() {
                   paintOrder="stroke"
                 >
                   <tspan fontStyle="italic">p</tspan>
-                  <tspan dx="6">(10</tspan><tspan baselineShift="super" fontSize="13">5</tspan><tspan> Pa)</tspan>
+                  <tspan dx="6">/ 10</tspan><tspan baselineShift="super" fontSize="13">5</tspan><tspan> Pa</tspan>
                 </text>
               </svg>
             ) : null}
@@ -933,8 +929,8 @@ function buildCalibrationOverlay(input: {
     xAxisEnd,
     yAxisStart,
     yAxisEnd,
-    xLabel: { x: xAxisEnd.x - 2, y: xAxisEnd.y + 18 },
-    yLabel: { x: yAxisEnd.x - 14, y: yAxisEnd.y + 4 },
+    xLabel: { x: xAxisEnd.x - 4, y: xAxisEnd.y + 24 },
+    yLabel: { x: yAxisEnd.x - 18, y: yAxisEnd.y + 18 },
     xTicks,
     yTicks
   };
