@@ -33,17 +33,15 @@ export function normalizeWhiteboardImage(
     const widthB = Math.hypot(br.x - bl.x, br.y - bl.y);
     const heightA = Math.hypot(bl.x - tl.x, bl.y - tl.y);
     const heightB = Math.hypot(br.x - tr.x, br.y - tr.y);
-    let outWidth = Math.max(600, Math.round(Math.max(widthA, widthB)));
-    let outHeight = Math.max(300, Math.round(Math.max(heightA, heightB)));
+    let outSize = Math.max(600, Math.round(Math.max(widthA, widthB, heightA, heightB)));
 
-    if (!isFinite(outWidth) || outWidth > 2200) outWidth = 800;
-    if (!isFinite(outHeight) || outHeight > 2200) outHeight = 800;
+    if (!isFinite(outSize) || outSize > 2200) outSize = 800;
 
     const H = computeHomography(ordered, [
       { x: 0, y: 0 },
-      { x: outWidth, y: 0 },
-      { x: outWidth, y: outHeight },
-      { x: 0, y: outHeight }
+      { x: outSize, y: 0 },
+      { x: outSize, y: outSize },
+      { x: 0, y: outSize }
     ]);
 
     const warped = warpPerspectiveFull(
@@ -51,8 +49,8 @@ export function normalizeWhiteboardImage(
       srcCanvas.width,
       srcCanvas.height,
       H,
-      outWidth,
-      outHeight
+      outSize,
+      outSize
     );
 
     if (warped) {
