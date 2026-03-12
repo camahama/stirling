@@ -55,10 +55,10 @@ export function App() {
   const hasImageSize = Boolean(imageSize && imageSize.x > 1 && imageSize.y > 1);
   const plotPadding = useMemo(
     () => ({
-      left: Math.max(56, Math.round(imageWidth * 0.075)),
-      right: Math.max(18, Math.round(imageWidth * 0.02)),
-      top: Math.max(18, Math.round(imageHeight * 0.02)),
-      bottom: Math.max(52, Math.round(imageHeight * 0.065))
+      left: Math.max(40, Math.round(imageWidth * 0.045)),
+      right: Math.max(10, Math.round(imageWidth * 0.012)),
+      top: Math.max(8, Math.round(imageHeight * 0.01)),
+      bottom: Math.max(40, Math.round(imageHeight * 0.045))
     }),
     [imageWidth, imageHeight]
   );
