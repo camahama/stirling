@@ -493,7 +493,7 @@ export function App() {
               style={{
                 position: "relative",
                 width: "100%",
-                maxWidth: "86%",
+                maxWidth: "80%",
                 aspectRatio: `${plotWidth} / ${plotHeight}`
               }}
               onMouseMove={(event) => {
@@ -860,7 +860,7 @@ export function App() {
               style={{
                 position: "relative",
                 width: "100%",
-                maxWidth: "86%"
+                maxWidth: "80%"
               }}
             >
               <img
@@ -981,9 +981,9 @@ function buildCalibrationOverlay(input: {
     valueStart: yAxisTopValue,
     valueEnd: yAxisBottomValue
   });
-  const tickFontSize = Math.max(22, Math.min(38, input.width * 0.022));
-  const axisLabelFontSize = Math.max(22, Math.min(42, input.width * 0.022));
-  const axisSuperscriptFontSize = Math.max(14, Math.min(28, input.width * 0.015));
+  const tickFontSize = Math.max(20, Math.min(34, input.width * 0.02));
+  const axisLabelFontSize = Math.max(20, Math.min(36, input.width * 0.02));
+  const axisSuperscriptFontSize = Math.max(13, Math.min(24, input.width * 0.013));
 
   return {
     xAxisStart,
