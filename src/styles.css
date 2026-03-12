@@ -370,6 +370,7 @@ button:disabled,
   align-items: center;
   justify-content: flex-start;
   min-height: 620px;
+  padding: 1.5rem 2rem 2rem;
 }
 
 .image-wrap {
