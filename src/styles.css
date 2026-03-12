@@ -353,9 +353,9 @@ button:disabled,
 
 .preview img {
   display: block;
-  max-width: 132%;
+  max-width: 118%;
   max-height: 92vh;
-  width: 96%;
+  width: 90%;
   height: auto;
   border-radius: 12px;
   border: 1px solid #d7e2e8;

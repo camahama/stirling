@@ -922,7 +922,7 @@ function buildNumericAxisTicks(input: {
   valueStart: number;
   valueEnd: number;
 }): AxisTick[] {
-  const tickValues = createNiceTickValues(input.valueStart, input.valueEnd, input.axis === "x" ? 5 : 4);
+  const tickValues = createNiceTickValues(input.valueStart, input.valueEnd, input.axis === "x" ? 4 : 4);
 
   return tickValues.map((value) => {
     const t = valueToInterpolation(value, input.valueStart, input.valueEnd);
@@ -957,13 +957,10 @@ function formatTickValue(value: number): string {
   if (!Number.isFinite(value)) {
     return "";
   }
-  if (Math.abs(value) >= 100 || Number.isInteger(value)) {
+  if (Math.abs(value) >= 10 || Number.isInteger(value)) {
     return value.toFixed(0);
   }
-  if (Math.abs(value) >= 10) {
-    return value.toFixed(1);
-  }
-  return value.toFixed(2).replace(/\.?0+$/, "");
+  return value.toFixed(1).replace(/\.?0+$/, "");
 }
 
 function valueToInterpolation(value: number, startValue: number, endValue: number): number {
@@ -986,27 +983,43 @@ function createNiceTickValues(startValue: number, endValue: number, maxTickCount
   const ascending = endValue > startValue;
   const minValue = ascending ? startValue : endValue;
   const maxValue = ascending ? endValue : startValue;
-  const rawStep = (maxValue - minValue) / Math.max(1, maxTickCount - 1);
-  const niceStep = getNiceStep(rawStep);
+  const rawStep = (maxValue - minValue) / Math.max(2, maxTickCount);
+  const baseStep = getNiceStep(rawStep);
+  const candidateSteps = Array.from(
+    new Set([baseStep / 2, baseStep, baseStep * 2].filter((step) => Number.isFinite(step) && step > 0))
+  ).sort((a, b) => a - b);
 
-  let firstTick = Math.ceil(minValue / niceStep) * niceStep;
-  let lastTick = Math.floor(maxValue / niceStep) * niceStep;
+  let bestTicks: number[] = [];
+  let bestScore = Number.POSITIVE_INFINITY;
 
-  const ticks: number[] = [];
+  for (const step of candidateSteps) {
+    const firstTick = Math.ceil(minValue / step) * step;
+    const lastTick = Math.floor(maxValue / step) * step;
+    const ticks: number[] = [];
 
-  for (let value = firstTick; value <= lastTick + niceStep * 0.5; value += niceStep) {
-    const rounded = roundToNicePrecision(value, niceStep);
-    if (rounded > minValue + niceStep * 0.2 && rounded < maxValue - niceStep * 0.2) {
-      ticks.push(rounded);
+    for (let value = firstTick; value <= lastTick + step * 0.5; value += step) {
+      ticks.push(roundToNicePrecision(value, step));
+    }
+
+    const uniqueTicks = Array.from(new Set(ticks)).sort((a, b) => ascending ? a - b : b - a);
+    const count = uniqueTicks.length;
+    const score = count >= 3 && count <= 5 ? Math.abs(count - maxTickCount) : Math.abs(count - 4) + 10;
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestTicks = uniqueTicks;
     }
   }
 
-  const uniqueTicks = Array.from(new Set(ticks.map((value) => roundToNicePrecision(value, niceStep))));
-  uniqueTicks.sort((a, b) => ascending ? a - b : b - a);
-  if (uniqueTicks.length >= 2) {
-    return uniqueTicks;
+  if (bestTicks.length >= 3 && bestTicks.length <= 5) {
+    return bestTicks;
   }
-  return [roundToNicePrecision((minValue + maxValue) / 2, niceStep)];
+
+  const fallbackStep = getNiceStep((maxValue - minValue) / 3);
+  const midValue = roundToNicePrecision((minValue + maxValue) / 2, fallbackStep);
+  return ascending
+    ? [roundToNicePrecision(minValue + fallbackStep, fallbackStep), midValue, roundToNicePrecision(maxValue - fallbackStep, fallbackStep)]
+    : [roundToNicePrecision(maxValue - fallbackStep, fallbackStep), midValue, roundToNicePrecision(minValue + fallbackStep, fallbackStep)];
 }
 
 function getNiceStep(rawStep: number): number {
