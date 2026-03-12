@@ -981,7 +981,7 @@ function buildCalibrationOverlay(input: {
     valueStart: yAxisTopValue,
     valueEnd: yAxisBottomValue
   });
-  const tickFontSize = Math.max(16, Math.min(32, input.width * 0.018));
+  const tickFontSize = Math.max(22, Math.min(38, input.width * 0.022));
   const axisLabelFontSize = Math.max(22, Math.min(42, input.width * 0.022));
   const axisSuperscriptFontSize = Math.max(14, Math.min(28, input.width * 0.015));
 
@@ -1022,7 +1022,7 @@ function buildNumericAxisTicks(input: {
         y2: input.fixed + 8,
         label: formatTickValue(value),
         labelX: x,
-        labelY: input.fixed + 26
+        labelY: input.fixed + 34
       };
     }
 
@@ -1033,7 +1033,7 @@ function buildNumericAxisTicks(input: {
       x2: input.fixed + 8,
       y2: y,
       label: formatTickValue(value),
-      labelX: input.fixed - 14,
+      labelX: input.fixed - 22,
       labelY: y + 5
     };
   });
