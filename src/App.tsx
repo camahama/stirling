@@ -594,13 +594,13 @@ export function App() {
                   <tspan dx="6">(cm</tspan><tspan baselineShift="super" fontSize="13">3</tspan><tspan>)</tspan>
                 </text>
                 <text
-                  x={Math.max(20, calibrationOverlay.yAxisStart.x - 34)}
+                  x={Math.max(18, calibrationOverlay.yAxisStart.x - 48)}
                   y={(calibrationOverlay.yAxisStart.y + calibrationOverlay.yAxisEnd.y) / 2}
                   fill="#124559"
                   fontSize="20"
                   fontWeight="700"
                   textAnchor="middle"
-                  transform={`rotate(-90 ${Math.max(20, calibrationOverlay.yAxisStart.x - 34)} ${(calibrationOverlay.yAxisStart.y + calibrationOverlay.yAxisEnd.y) / 2})`}
+                  transform={`rotate(-90 ${Math.max(18, calibrationOverlay.yAxisStart.x - 48)} ${(calibrationOverlay.yAxisStart.y + calibrationOverlay.yAxisEnd.y) / 2})`}
                   stroke="rgba(255,255,255,0.94)"
                   strokeWidth="4"
                   paintOrder="stroke"
@@ -796,7 +796,7 @@ function buildCalibrationOverlay(input: {
   pMin: string;
   pMax: string;
 }): CalibrationOverlay {
-  const marginX = Math.max(26, Math.round(input.width * 0.04));
+  const marginX = Math.max(42, Math.round(input.width * 0.055));
   const marginY = Math.max(26, Math.round(input.height * 0.04));
   const vMinValue = parseNumericInput(input.vMin);
   const vMaxValue = parseNumericInput(input.vMax);
@@ -868,8 +868,11 @@ function buildNumericAxisTicks(input: {
 }): AxisTick[] {
   const tickValues = createNiceTickValues(input.valueStart, input.valueEnd, input.axis === "x" ? 5 : 4);
 
-  return tickValues.map((value) => {
+  return tickValues.map((value, index) => {
     const t = valueToInterpolation(value, input.valueStart, input.valueEnd);
+    const suppressLabel =
+      (input.axis === "x" && index === 0) ||
+      (input.axis === "y" && index === tickValues.length - 1);
 
     if (input.axis === "x") {
       const x = input.start + (input.end - input.start) * t;
@@ -878,7 +881,7 @@ function buildNumericAxisTicks(input: {
         y1: input.fixed - 8,
         x2: x,
         y2: input.fixed + 8,
-        label: formatTickValue(value),
+        label: suppressLabel ? "" : formatTickValue(value),
         labelX: x,
         labelY: input.fixed + 26
       };
@@ -890,8 +893,8 @@ function buildNumericAxisTicks(input: {
       y1: y,
       x2: input.fixed + 8,
       y2: y,
-      label: formatTickValue(value),
-      labelX: input.fixed - 14,
+      label: suppressLabel ? "" : formatTickValue(value),
+      labelX: input.fixed - 20,
       labelY: y + 5
     };
   });
