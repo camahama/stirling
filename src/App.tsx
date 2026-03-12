@@ -319,9 +319,6 @@ export function App() {
                 type="file"
                 accept="image/*"
                 onChange={onImageSelected}
-                onClick={(event) => {
-                  event.currentTarget.value = "";
-                }}
                 className="visually-hidden"
               />
               <label className="action-button compact-button prominent-button" htmlFor={fileInputId}>
@@ -929,8 +926,8 @@ function buildCalibrationOverlay(input: {
     xAxisEnd,
     yAxisStart,
     yAxisEnd,
-    xLabel: { x: xAxisEnd.x - 18, y: xAxisEnd.y + 30 },
-    yLabel: { x: yAxisEnd.x - 6, y: yAxisEnd.y + 30 },
+    xLabel: { x: xAxisEnd.x + 8, y: xAxisEnd.y + 40 },
+    yLabel: { x: yAxisEnd.x - 30, y: yAxisEnd.y + 6 },
     xTicks,
     yTicks
   };
