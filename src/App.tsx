@@ -22,13 +22,13 @@ export function App() {
 
   const [vMax, setVMax] = useState<string>("1");
   const [vMin, setVMin] = useState<string>("0");
-  const [pMax, setPMax] = useState<string>("");
-  const [pMin, setPMin] = useState<string>("");
+  const [pMax, setPMax] = useState<string>("1");
+  const [pMin, setPMin] = useState<string>("0");
   const [appliedScale, setAppliedScale] = useState({
     vMax: "1",
     vMin: "0",
-    pMax: "",
-    pMin: ""
+    pMax: "1",
+    pMin: "0"
   });
   const [maxPoint, setMaxPoint] = useState<Point | null>(null);
   const [minPoint, setMinPoint] = useState<Point | null>(null);
@@ -231,13 +231,13 @@ export function App() {
   const resetCalibration = () => {
     setVMax("1");
     setVMin("0");
-    setPMax("");
-    setPMin("");
+    setPMax("1");
+    setPMin("0");
     setAppliedScale({
       vMax: "1",
       vMin: "0",
-      pMax: "",
-      pMin: ""
+      pMax: "1",
+      pMin: "0"
     });
     setMaxPoint(null);
     setMinPoint(null);
@@ -990,8 +990,8 @@ function buildCalibrationOverlay(input: {
     xAxisEnd,
     yAxisStart,
     yAxisEnd,
-    xLabel: { x: xAxisEnd.x + 28, y: xAxisEnd.y + 55 },
-    yLabel: { x: yAxisEnd.x - 30, y: yAxisEnd.y + 0 },
+    xLabel: { x: xAxisEnd.x + 35, y: xAxisEnd.y + 60 },
+    yLabel: { x: yAxisEnd.x - 50, y: yAxisEnd.y + 3 },
     xTicks,
     yTicks,
     tickFontSize,
