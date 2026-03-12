@@ -493,7 +493,7 @@ export function App() {
               style={{
                 position: "relative",
                 width: "100%",
-                maxWidth: "92%",
+                maxWidth: "86%",
                 aspectRatio: `${plotWidth} / ${plotHeight}`
               }}
               onMouseMove={(event) => {
@@ -860,7 +860,7 @@ export function App() {
               style={{
                 position: "relative",
                 width: "100%",
-                maxWidth: "92%"
+                maxWidth: "86%"
               }}
             >
               <img
