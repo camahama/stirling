@@ -18,6 +18,7 @@ export function App() {
   const [locale, setLocale] = useState<Locale>("sv");
   const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null);
   const [normalizedImageUrl, setNormalizedImageUrl] = useState<string | null>(null);
+  const [imageSize, setImageSize] = useState<Point | null>(null);
 
   const [vMax, setVMax] = useState<string>("1");
   const [vMin, setVMin] = useState<string>("0");
@@ -49,8 +50,9 @@ export function App() {
   const previewImageUrl = normalizedImageUrl ?? sourceImageUrl;
   const outlinePoints = contourClosed ? contourPoints : [];
   const orderedCornerPoints = cornerPoints.length === 4 ? orderCornersForQuad(cornerPoints) : cornerPoints;
-  const imageWidth = previewImageRef.current?.naturalWidth || 1;
-  const imageHeight = previewImageRef.current?.naturalHeight || 1;
+  const imageWidth = imageSize?.x || 1;
+  const imageHeight = imageSize?.y || 1;
+  const hasImageSize = Boolean(imageSize && imageSize.x > 1 && imageSize.y > 1);
   const plotPadding = useMemo(
     () => ({
       left: Math.max(56, Math.round(imageWidth * 0.075)),
@@ -77,6 +79,7 @@ export function App() {
     }
 
     const nextUrl = URL.createObjectURL(file);
+    setImageSize(null);
     setSourceImageUrl(nextUrl);
     setNormalizedImageUrl(null);
     resetContour();
@@ -103,6 +106,7 @@ export function App() {
     const img = new Image();
     img.onload = () => {
       const normalized = normalizeWhiteboardImage(img, orderedCornerPoints);
+      setImageSize(null);
       setNormalizedImageUrl(normalized.normalizedDataUrl);
       resetContour();
       resetCalibration();
@@ -286,6 +290,23 @@ export function App() {
     });
   };
 
+  const onPreviewImageLoad = (event: ChangeEvent<HTMLImageElement> | MouseEvent<HTMLImageElement> | React.SyntheticEvent<HTMLImageElement>) => {
+    const target = event.currentTarget;
+    const nextWidth = target.naturalWidth;
+    const nextHeight = target.naturalHeight;
+
+    if (!nextWidth || !nextHeight) {
+      return;
+    }
+
+    setImageSize((current) => {
+      if (current?.x === nextWidth && current?.y === nextHeight) {
+        return current;
+      }
+      return { x: nextWidth, y: nextHeight };
+    });
+  };
+
   return (
     <main className="app-shell">
       <header className="hero">
@@ -466,39 +487,41 @@ export function App() {
 
       <section className="panel preview">
         {previewImageUrl ? (
-          <div
-            className={`image-wrap ${(clickTarget ? "calibration-active" : "") + (cornerStepActive ? " corners-active" : "") + (contourStepActive ? " guide-active" : "")}`}
-            style={{
-              position: "relative",
-              width: "100%",
-              maxWidth: "92%",
-              aspectRatio: `${plotWidth} / ${plotHeight}`
-            }}
-            onMouseMove={(event) => {
-              updateDraggingContourPoint(event);
-              updateDraggingCornerPoint(event);
-            }}
-            onMouseUp={() => {
-              setDraggingContourIndex(null);
-              setDraggingCornerIndex(null);
-            }}
-            onMouseLeave={() => {
-              setDraggingContourIndex(null);
-              setDraggingCornerIndex(null);
-            }}
-          >
-            <div className="image-plane" style={plotAreaStyle}>
-              <img
-                ref={previewImageRef}
-                src={previewImageUrl}
-                alt={t.previewAlt}
-                onClick={onPreviewClick}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  height: "100%"
-                }}
-              />
+          hasImageSize ? (
+            <div
+              className={`image-wrap ${(clickTarget ? "calibration-active" : "") + (cornerStepActive ? " corners-active" : "") + (contourStepActive ? " guide-active" : "")}`}
+              style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: "92%",
+                aspectRatio: `${plotWidth} / ${plotHeight}`
+              }}
+              onMouseMove={(event) => {
+                updateDraggingContourPoint(event);
+                updateDraggingCornerPoint(event);
+              }}
+              onMouseUp={() => {
+                setDraggingContourIndex(null);
+                setDraggingCornerIndex(null);
+              }}
+              onMouseLeave={() => {
+                setDraggingContourIndex(null);
+                setDraggingCornerIndex(null);
+              }}
+            >
+              <div className="image-plane" style={plotAreaStyle}>
+                <img
+                  ref={previewImageRef}
+                  src={previewImageUrl}
+                  alt={t.previewAlt}
+                  onLoad={onPreviewImageLoad}
+                  onClick={onPreviewClick}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    height: "100%"
+                  }}
+                />
 
               {contourClosed ? (
                 <div
@@ -697,23 +720,23 @@ export function App() {
                   />
                 </svg>
               ) : null}
-            </div>
+              </div>
 
-            {showCalibrationAxes && calibrationOverlay ? (
-              <svg
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  width: "100%",
-                  height: "100%",
-                  pointerEvents: "none",
-                  zIndex: 7
-                }}
-                width={plotWidth}
-                height={plotHeight}
-                viewBox={`0 0 ${plotWidth} ${plotHeight}`}
-              >
+              {showCalibrationAxes && calibrationOverlay ? (
+                <svg
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    pointerEvents: "none",
+                    zIndex: 7
+                  }}
+                  width={plotWidth}
+                  height={plotHeight}
+                  viewBox={`0 0 ${plotWidth} ${plotHeight}`}
+                >
                 <defs>
                   <marker
                     id="axis-arrow"
@@ -769,7 +792,7 @@ export function App() {
                       x={tick.labelX}
                       y={tick.labelY}
                       fill="#124559"
-                      fontSize="16"
+                      fontSize={calibrationOverlay.tickFontSize}
                       fontWeight="600"
                       textAnchor="middle"
                       stroke="rgba(255,255,255,0.92)"
@@ -788,7 +811,7 @@ export function App() {
                       x={tick.labelX}
                       y={tick.labelY}
                       fill="#124559"
-                      fontSize="16"
+                      fontSize={calibrationOverlay.tickFontSize}
                       fontWeight="600"
                       textAnchor="end"
                       stroke="rgba(255,255,255,0.92)"
@@ -799,38 +822,60 @@ export function App() {
                     </text>
                   </g>
                 ))}
-                <text
-                  x={calibrationOverlay.xLabel.x}
-                  y={Math.min(plotHeight - 2, calibrationOverlay.xLabel.y)}
-                  fill="#124559"
-                  fontSize="20"
+                  <text
+                    x={calibrationOverlay.xLabel.x}
+                    y={Math.min(plotHeight - 2, calibrationOverlay.xLabel.y)}
+                    fill="#124559"
+                    fontSize={calibrationOverlay.axisLabelFontSize}
                   fontWeight="700"
                   textAnchor="end"
                   stroke="rgba(255,255,255,0.94)"
                   strokeWidth="4"
                   paintOrder="stroke"
                 >
-                  <tspan fontStyle="italic">V</tspan>
-                  <tspan dx="6">/ cm</tspan><tspan baselineShift="super" fontSize="13">3</tspan>
-                </text>
-                <text
-                  x={calibrationOverlay.yLabel.x}
-                  y={calibrationOverlay.yLabel.y - 10}
-                  fill="#124559"
-                  fontSize="20"
+                    <tspan fontStyle="italic">V</tspan>
+                    <tspan dx="6">/ cm</tspan><tspan baselineShift="super" fontSize={calibrationOverlay.axisSuperscriptFontSize}>3</tspan>
+                  </text>
+                  <text
+                    x={calibrationOverlay.yLabel.x}
+                    y={calibrationOverlay.yLabel.y - 10}
+                    fill="#124559"
+                    fontSize={calibrationOverlay.axisLabelFontSize}
                   fontWeight="700"
                   textAnchor="start"
                   stroke="rgba(255,255,255,0.94)"
                   strokeWidth="4"
                   paintOrder="stroke"
                 >
-                  <tspan fontStyle="italic">p</tspan>
-                  <tspan dx="6">/ 10</tspan><tspan baselineShift="super" fontSize="13">5</tspan><tspan> Pa</tspan>
-                </text>
-              </svg>
-            ) : null}
+                    <tspan fontStyle="italic">p</tspan>
+                    <tspan dx="6">/ 10</tspan><tspan baselineShift="super" fontSize={calibrationOverlay.axisSuperscriptFontSize}>5</tspan><tspan> Pa</tspan>
+                  </text>
+                </svg>
+              ) : null}
 
-          </div>
+            </div>
+          ) : (
+            <div
+              className="image-wrap image-wrap-loading"
+              style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: "92%"
+              }}
+            >
+              <img
+                ref={previewImageRef}
+                src={previewImageUrl}
+                alt={t.previewAlt}
+                onLoad={onPreviewImageLoad}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "auto"
+                }}
+              />
+            </div>
+          )
         ) : (
           <p>{t.noImageText}</p>
         )}
@@ -862,6 +907,9 @@ type CalibrationOverlay = {
   yLabel: Point;
   xTicks: AxisTick[];
   yTicks: AxisTick[];
+  tickFontSize: number;
+  axisLabelFontSize: number;
+  axisSuperscriptFontSize: number;
 };
 
 function buildCalibrationOverlay(input: {
@@ -933,6 +981,9 @@ function buildCalibrationOverlay(input: {
     valueStart: yAxisTopValue,
     valueEnd: yAxisBottomValue
   });
+  const tickFontSize = Math.max(16, Math.min(32, input.width * 0.018));
+  const axisLabelFontSize = Math.max(22, Math.min(42, input.width * 0.022));
+  const axisSuperscriptFontSize = Math.max(14, Math.min(28, input.width * 0.015));
 
   return {
     xAxisStart,
@@ -942,7 +993,10 @@ function buildCalibrationOverlay(input: {
     xLabel: { x: xAxisEnd.x + 28, y: xAxisEnd.y + 55 },
     yLabel: { x: yAxisEnd.x - 30, y: yAxisEnd.y + 0 },
     xTicks,
-    yTicks
+    yTicks,
+    tickFontSize,
+    axisLabelFontSize,
+    axisSuperscriptFontSize
   };
 }
 
