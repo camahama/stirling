@@ -595,6 +595,8 @@ button:disabled,
   min-height: 0;
   width: 100%;
   align-items: stretch;
+  grid-column: auto;
+  grid-row: auto;
 }
 
 .report-preview-panel .image-wrap {
