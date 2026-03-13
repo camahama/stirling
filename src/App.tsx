@@ -13,15 +13,20 @@ type CornerPoint = { x: number; y: number };
 
 const CLOSE_RADIUS = 18;
 const SEGMENT_HIT_DISTANCE = 14;
+const DEFAULT_IMAGE_SIZE = 1000;
+const DEFAULT_IMAGE_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${DEFAULT_IMAGE_SIZE}" height="${DEFAULT_IMAGE_SIZE}" viewBox="0 0 ${DEFAULT_IMAGE_SIZE} ${DEFAULT_IMAGE_SIZE}"><rect width="${DEFAULT_IMAGE_SIZE}" height="${DEFAULT_IMAGE_SIZE}" fill="white"/></svg>`
+)}`;
 
 export function App() {
   const [locale, setLocale] = useState<Locale>("sv");
-  const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null);
-  const [normalizedImageUrl, setNormalizedImageUrl] = useState<string | null>(null);
+  const [printLayout, setPrintLayout] = useState(false);
+  const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(DEFAULT_IMAGE_DATA_URL);
+  const [normalizedImageUrl, setNormalizedImageUrl] = useState<string | null>(DEFAULT_IMAGE_DATA_URL);
   const [imageSize, setImageSize] = useState<Point | null>(null);
 
-  const [vMax, setVMax] = useState<string>("1");
-  const [vMin, setVMin] = useState<string>("0");
+  const [deltaV, setDeltaV] = useState<string>("1");
+  const [volumeRatio, setVolumeRatio] = useState<string>("2");
   const [pMax, setPMax] = useState<string>("1");
   const [pMin, setPMin] = useState<string>("0");
   const [appliedScale, setAppliedScale] = useState({
@@ -42,11 +47,16 @@ export function App() {
   const [contourStepActive, setContourStepActive] = useState(false);
   const [contourClosed, setContourClosed] = useState(false);
   const [draggingContourIndex, setDraggingContourIndex] = useState<number | null>(null);
+  const [stirlingEnabled, setStirlingEnabled] = useState(false);
+  const [tCold, setTCold] = useState<string>("300");
+  const [tHot, setTHot] = useState<string>("400");
 
   const previewImageRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const t = useMemo(() => messages[locale], [locale]);
+  const hasCustomImage =
+    sourceImageUrl !== DEFAULT_IMAGE_DATA_URL || normalizedImageUrl !== DEFAULT_IMAGE_DATA_URL;
   const previewImageUrl = normalizedImageUrl ?? sourceImageUrl;
   const outlinePoints = contourClosed ? contourPoints : [];
   const orderedCornerPoints = cornerPoints.length === 4 ? orderCornersForQuad(cornerPoints) : cornerPoints;
@@ -98,6 +108,17 @@ export function App() {
     fileInputRef.current.click();
   };
 
+  const resetToDefaultImage = () => {
+    setImageSize({ x: DEFAULT_IMAGE_SIZE, y: DEFAULT_IMAGE_SIZE });
+    setSourceImageUrl(DEFAULT_IMAGE_DATA_URL);
+    setNormalizedImageUrl(DEFAULT_IMAGE_DATA_URL);
+    resetContour();
+    resetCalibration();
+    setCornerPoints([]);
+    setCornerStepActive(false);
+    setClickTarget(null);
+  };
+
   const onNormalizeImage = () => {
     if (!sourceImageUrl || cornerPoints.length !== 4) {
       return;
@@ -136,7 +157,7 @@ export function App() {
   };
 
   const onPreviewClick = (event: MouseEvent<HTMLImageElement>) => {
-    const point = getImagePoint(event, event.currentTarget);
+    const point = getImagePoint(event, event.currentTarget, imageWidth, imageHeight);
 
     if (cornerStepActive) {
       if (cornerPoints.length < 4) {
@@ -204,7 +225,7 @@ export function App() {
       return;
     }
 
-    const point = getImagePoint(event, previewImageRef.current);
+    const point = getImagePoint(event, previewImageRef.current, imageWidth, imageHeight);
     const next = [...contourPoints];
     next.splice(index + 1, 0, point);
     setContourPoints(next);
@@ -215,7 +236,7 @@ export function App() {
       return;
     }
 
-    const point = getImagePoint(event, previewImageRef.current);
+    const point = getImagePoint(event, previewImageRef.current, imageWidth, imageHeight);
     const next = [...contourPoints];
     next[draggingContourIndex] = point;
     setContourPoints(next);
@@ -226,20 +247,20 @@ export function App() {
       return;
     }
 
-    const point = getImagePoint(event, previewImageRef.current);
+    const point = getImagePoint(event, previewImageRef.current, imageWidth, imageHeight);
     const next = [...cornerPoints];
     next[draggingCornerIndex] = point;
     setCornerPoints(next);
   };
 
   const resetCalibration = () => {
-    setVMax("1");
-    setVMin("0");
+    setDeltaV("1");
+    setVolumeRatio("2");
     setPMax("1");
     setPMin("0");
     setAppliedScale({
-      vMax: "1",
-      vMin: "0",
+      vMax: "2",
+      vMin: "1",
       pMax: "1",
       pMin: "0"
     });
@@ -271,6 +292,21 @@ export function App() {
     : null;
   const formattedCalibratedArea =
     calibratedArea !== null ? formatLocaleNumber(calibratedArea, locale, 3) : "--";
+  const formattedDeltaV = formatDisplayInput(deltaV, locale, 4);
+  const formattedVolumeRatio = formatDisplayInput(volumeRatio, locale, 4);
+  const formattedPMin = formatDisplayInput(pMin, locale, 4);
+  const formattedPMax = formatDisplayInput(pMax, locale, 4);
+  const formattedTCold = formatDisplayInput(tCold, locale, 4);
+  const formattedTHot = formatDisplayInput(tHot, locale, 4);
+  const formattedDerivedVMin = formatDerivedValue(appliedScale.vMin, locale, 4);
+  const formattedDerivedVMax = formatDerivedValue(appliedScale.vMax, locale, 4);
+  const pMinValue = parseNumericInput(appliedScale.pMin);
+  const pMaxValue = parseNumericInput(appliedScale.pMax);
+  const showStirlingWarningPressure =
+    stirlingEnabled && Number.isFinite(pMinValue) && Number.isFinite(pMaxValue) && pMinValue < pMaxValue / 10;
+  const stirlingWarnings = [
+    showStirlingWarningPressure ? t.stirlingPressureWarning : null
+  ].filter(Boolean) as string[];
   const showCalibrationAxes = maxPoint && minPoint && !clickTarget;
   const calibrationOverlay = showCalibrationAxes
     ? buildCalibrationOverlay({
@@ -288,13 +324,52 @@ export function App() {
         pMax: appliedScale.pMax
       })
     : null;
+  const stirlingOverlayPoints =
+    stirlingEnabled && showCalibrationAxes && stirlingWarnings.length === 0
+      ? buildStirlingOverlayPoints({
+          topLeft: maxPoint ? { x: maxPoint.x + plotPadding.left, y: maxPoint.y + plotPadding.top } : null,
+          bottomRight: minPoint ? { x: minPoint.x + plotPadding.left, y: minPoint.y + plotPadding.top } : null,
+          vMin: appliedScale.vMin,
+          vMax: appliedScale.vMax,
+          pMin: appliedScale.pMin,
+          pMax: appliedScale.pMax,
+          tCold,
+          tHot
+        })
+      : [];
+  const stirlingWorkJ =
+    showCalibrationAxes && stirlingWarnings.length === 0
+      ? getStirlingWorkJ({
+          vMin: appliedScale.vMin,
+          vMax: appliedScale.vMax,
+          pMin: appliedScale.pMin,
+          tCold,
+          tHot
+        })
+      : null;
+  const formattedStirlingWorkJ = stirlingWorkJ !== null ? formatSigJ(stirlingWorkJ) : "--";
 
   const onApplyScale = () => {
+    const deltaVValue = parseNumericInput(deltaV);
+    const ratioValue = parseNumericInput(volumeRatio);
+    const derivedVMin = deltaVValue / (ratioValue - 1);
+    const derivedVMax = (deltaVValue * ratioValue) / (ratioValue - 1);
     setAppliedScale({
-      vMin,
-      vMax,
+      vMin: String(derivedVMin),
+      vMax: String(derivedVMax),
       pMin,
       pMax
+    });
+  };
+
+  const onToggleStirling = () => {
+    setStirlingEnabled((current) => {
+      const next = !current;
+      if (next) {
+        setContourStepActive(false);
+        setDraggingContourIndex(null);
+      }
+      return next;
     });
   };
 
@@ -315,35 +390,477 @@ export function App() {
     });
   };
 
+  const previewSection = (
+    <section className={`panel preview ${printLayout ? "report-preview-panel" : ""}`}>
+      {previewImageUrl ? (
+        hasImageSize ? (
+          <div
+            className={`image-wrap ${(clickTarget ? "calibration-active" : "") + (cornerStepActive ? " corners-active" : "") + (contourStepActive ? " guide-active" : "")}`}
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: printLayout ? "100%" : "92%",
+              aspectRatio: `${plotWidth} / ${plotHeight}`
+            }}
+            onPointerMove={printLayout ? undefined : (event) => {
+              updateDraggingContourPoint(event);
+              updateDraggingCornerPoint(event);
+            }}
+            onPointerUp={printLayout ? undefined : () => {
+              setDraggingContourIndex(null);
+              setDraggingCornerIndex(null);
+            }}
+            onPointerLeave={printLayout ? undefined : () => {
+              setDraggingContourIndex(null);
+              setDraggingCornerIndex(null);
+            }}
+            onPointerCancel={printLayout ? undefined : () => {
+              setDraggingContourIndex(null);
+              setDraggingCornerIndex(null);
+            }}
+          >
+            <div className="image-plane" style={plotAreaStyle}>
+              <img
+                ref={previewImageRef}
+                src={previewImageUrl}
+                alt={t.previewAlt}
+                onLoad={onPreviewImageLoad}
+                onClick={printLayout ? undefined : onPreviewClick}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "100%"
+                }}
+              />
+
+            {contourClosed && !stirlingEnabled ? (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(255,255,255,0.26)",
+                  pointerEvents: "none",
+                  zIndex: 1
+                }}
+              />
+            ) : null}
+
+            {cornerPoints.map((pt, idx) => (
+              <div
+                key={`corner-${idx}`}
+                style={{
+                  position: "absolute",
+                  left: `${(pt.x / imageWidth) * 100}%`,
+                  top: `${(pt.y / imageHeight) * 100}%`,
+                  width: 10,
+                  height: 10,
+                  background: "red",
+                  borderRadius: idx === 0 ? "30%" : "50%",
+                  cursor: printLayout ? "default" : "grab",
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 10
+                }}
+                onPointerDown={printLayout ? undefined : (event) => onCornerPointPointerDown(event, idx)}
+              />
+            ))}
+
+            {cornerPoints.length === 4 ? (
+              <svg
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "100%",
+                  height: "100%",
+                  pointerEvents: "none",
+                  zIndex: 9
+                }}
+                width={imageWidth}
+                height={imageHeight}
+                viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+              >
+                <polygon
+                  points={orderedCornerPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                  fill="rgba(255,0,0,0.1)"
+                  stroke="red"
+                  strokeWidth="3"
+                />
+              </svg>
+            ) : null}
+
+            {!showCalibrationAxes && maxPoint ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${(maxPoint.x / imageWidth) * 100}%`,
+                  top: `${(maxPoint.y / imageHeight) * 100}%`,
+                  width: 10,
+                  height: 10,
+                  background: "#2e86ab",
+                  border: "2px solid #f4f8fb",
+                  borderRadius: "50%",
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 8
+                }}
+              />
+            ) : null}
+
+            {!showCalibrationAxes && minPoint ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${(minPoint.x / imageWidth) * 100}%`,
+                  top: `${(minPoint.y / imageHeight) * 100}%`,
+                  width: 10,
+                  height: 10,
+                  background: "#2e86ab",
+                  border: "2px solid #f4f8fb",
+                  borderRadius: "50%",
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 8
+                }}
+              />
+            ) : null}
+
+            {contourClosed && stirlingEnabled ? (
+              <svg
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "100%",
+                  height: "100%",
+                  pointerEvents: "none",
+                  zIndex: 6
+                }}
+                width={imageWidth}
+                height={imageHeight}
+                viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+              >
+                <polygon
+                  points={contourPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                    fill="rgba(255,176,0,0.24)"
+                    stroke="none"
+                  />
+                </svg>
+            ) : null}
+
+            {contourClosed && !stirlingEnabled ? (
+              <svg
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "100%",
+                  height: "100%",
+                  zIndex: 10
+                }}
+                width={imageWidth}
+                height={imageHeight}
+                viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+              >
+                {!printLayout ? contourPoints.map((pt, idx) => {
+                  const next = contourPoints[(idx + 1) % contourPoints.length];
+                  return (
+                    <line
+                      key={`segment-hit-${idx}`}
+                      x1={pt.x}
+                      y1={pt.y}
+                      x2={next.x}
+                      y2={next.y}
+                      stroke="transparent"
+                      strokeWidth="18"
+                      onClick={(event) => onContourSegmentClick(event, idx)}
+                    />
+                  );
+                }) : null}
+                <polygon
+                  points={contourPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                  fill="rgba(255,176,0,0.08)"
+                  stroke="rgba(255,176,0,0.7)"
+                  strokeWidth="3"
+                  strokeDasharray="8 6"
+                  pointerEvents="none"
+                />
+              </svg>
+            ) : contourPoints.length >= 2 && !stirlingEnabled ? (
+              <svg
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "100%",
+                  height: "100%",
+                  pointerEvents: "none",
+                  zIndex: 10
+                }}
+                width={imageWidth}
+                height={imageHeight}
+                viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+              >
+                <polyline
+                  points={contourPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                  fill="none"
+                  stroke="rgba(255,176,0,0.9)"
+                  strokeWidth="3"
+                  strokeDasharray="8 6"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            ) : null}
+
+            {!stirlingEnabled ? contourPoints.map((pt, idx) => (
+              <div
+                key={`contour-${idx}`}
+                style={{
+                  position: "absolute",
+                  left: `${(pt.x / imageWidth) * 100}%`,
+                  top: `${(pt.y / imageHeight) * 100}%`,
+                  width: 10,
+                  height: 10,
+                  background: "#ffb000",
+                  borderRadius: idx === 0 ? "30%" : "50%",
+                  cursor: contourClosed && !printLayout ? "grab" : "default",
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 11,
+                  pointerEvents: contourClosed && !printLayout ? "auto" : "none"
+                }}
+                onPointerDown={contourClosed && !printLayout ? (event) => onContourPointPointerDown(event, idx) : undefined}
+              />
+            )) : null}
+
+            {!cornerStepActive && !stirlingEnabled && outlinePoints.length >= 3 ? (
+              <svg
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "100%",
+                  height: "100%",
+                  pointerEvents: "none",
+                  zIndex: 8
+                }}
+                width={imageWidth}
+                height={imageHeight}
+                viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+              >
+                <polygon
+                  points={outlinePoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                  fill="none"
+                  stroke="#d62828"
+                  strokeWidth="4"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            ) : null}
+            </div>
+
+            {showCalibrationAxes && calibrationOverlay ? (
+              <svg
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "100%",
+                  height: "100%",
+                  pointerEvents: "none",
+                  zIndex: 7
+                }}
+                width={plotWidth}
+                height={plotHeight}
+                viewBox={`0 0 ${plotWidth} ${plotHeight}`}
+              >
+              {stirlingOverlayPoints.length >= 4 ? (
+                <polygon
+                  points={stirlingOverlayPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                  fill="rgba(19,123,95,0.14)"
+                  stroke="#137b5f"
+                  strokeWidth="4"
+                  strokeLinejoin="round"
+                />
+              ) : null}
+              <defs>
+                <marker
+                  id="axis-arrow"
+                  markerWidth="10"
+                  markerHeight="10"
+                  refX="7"
+                  refY="5"
+                  orient="auto"
+                  markerUnits="strokeWidth"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#2e86ab" />
+                </marker>
+              </defs>
+              <line x1={calibrationOverlay.xAxisStart.x} y1={calibrationOverlay.xAxisStart.y} x2={calibrationOverlay.xAxisEnd.x} y2={calibrationOverlay.xAxisEnd.y} stroke="rgba(255,255,255,0.9)" strokeWidth="5.5" />
+              <line x1={calibrationOverlay.xAxisStart.x} y1={calibrationOverlay.xAxisStart.y} x2={calibrationOverlay.xAxisEnd.x} y2={calibrationOverlay.xAxisEnd.y} stroke="#2e86ab" strokeWidth="2.5" markerEnd="url(#axis-arrow)" />
+              <line x1={calibrationOverlay.yAxisStart.x} y1={calibrationOverlay.yAxisStart.y} x2={calibrationOverlay.yAxisEnd.x} y2={calibrationOverlay.yAxisEnd.y} stroke="rgba(255,255,255,0.9)" strokeWidth="5.5" />
+              <line x1={calibrationOverlay.yAxisStart.x} y1={calibrationOverlay.yAxisStart.y} x2={calibrationOverlay.yAxisEnd.x} y2={calibrationOverlay.yAxisEnd.y} stroke="#2e86ab" strokeWidth="2.5" markerEnd="url(#axis-arrow)" />
+              {calibrationOverlay.xTicks.map((tick, index) => (
+                <g key={`x-tick-${index}`}>
+                  <line x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} stroke="rgba(255,255,255,0.9)" strokeWidth="4" />
+                  <line x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} stroke="#2e86ab" strokeWidth="1.5" />
+                  <text x={tick.labelX} y={tick.labelY} fill="#124559" fontSize={calibrationOverlay.tickFontSize} fontWeight="600" textAnchor="middle" stroke="rgba(255,255,255,0.92)" strokeWidth="3" paintOrder="stroke">
+                    {tick.label}
+                  </text>
+                </g>
+              ))}
+              {calibrationOverlay.yTicks.map((tick, index) => (
+                <g key={`y-tick-${index}`}>
+                  <line x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} stroke="rgba(255,255,255,0.9)" strokeWidth="4" />
+                  <line x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} stroke="#2e86ab" strokeWidth="1.5" />
+                  <text x={tick.labelX} y={tick.labelY} fill="#124559" fontSize={calibrationOverlay.tickFontSize} fontWeight="600" textAnchor="end" stroke="rgba(255,255,255,0.92)" strokeWidth="3" paintOrder="stroke">
+                    {tick.label}
+                  </text>
+                </g>
+              ))}
+                <text x={calibrationOverlay.xLabel.x} y={Math.min(plotHeight - 2, calibrationOverlay.xLabel.y)} fill="#124559" fontSize={calibrationOverlay.axisLabelFontSize} fontWeight="700" textAnchor="end" stroke="rgba(255,255,255,0.94)" strokeWidth="4" paintOrder="stroke">
+                  <tspan fontStyle="italic">V</tspan>
+                  <tspan dx="6">/ cm³</tspan>
+                </text>
+                <text x={calibrationOverlay.yLabel.x} y={calibrationOverlay.yLabel.y - 10} fill="#124559" fontSize={calibrationOverlay.axisLabelFontSize} fontWeight="700" textAnchor="start" stroke="rgba(255,255,255,0.94)" strokeWidth="4" paintOrder="stroke">
+                  <tspan fontStyle="italic">p</tspan>
+                  <tspan dx="6">/ 10</tspan>
+                  <tspan dy={-calibrationOverlay.axisLabelFontSize * 0.22} fontSize={calibrationOverlay.axisLabelFontSize * 0.72}>5</tspan>
+                  <tspan dy={calibrationOverlay.axisLabelFontSize * 0.22} fontSize={calibrationOverlay.axisLabelFontSize}> Pa</tspan>
+                </text>
+              </svg>
+            ) : null}
+
+          </div>
+        ) : (
+          <div
+            className="image-wrap image-wrap-loading"
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: printLayout ? "100%" : "92%"
+            }}
+          >
+            <img
+              ref={previewImageRef}
+              src={previewImageUrl}
+              alt={t.previewAlt}
+              onLoad={onPreviewImageLoad}
+              style={{
+                display: "block",
+                width: "100%",
+                height: "auto"
+              }}
+            />
+          </div>
+        )
+      ) : (
+        <p>{t.noImageText}</p>
+      )}
+    </section>
+  );
+
+  const resultPanels = (
+    <section className="result-panels">
+      <section className="instrument-panel-grid">
+        <article className="instrument-panel">
+          <div className="instrument-head">
+            <span className="instrument-label">{t.pixelAreaLabel}</span>
+            <HelpBadge text={t.pixelAreaHelp} />
+          </div>
+          <strong className="instrument-value">{pixelArea > 0 ? pixelArea.toFixed(0) : "--"}</strong>
+        </article>
+        <article className="instrument-panel accent-panel">
+          <div className="instrument-head">
+            <span className="instrument-label">{t.calibratedAreaLabel}</span>
+            <HelpBadge text={t.calibratedAreaHelp} />
+          </div>
+          <div className="instrument-reading">
+            <strong className="instrument-value">{formattedCalibratedArea}</strong>
+            <span className="instrument-unit">mJ</span>
+          </div>
+        </article>
+      </section>
+    </section>
+  );
+
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${printLayout ? "print-layout" : ""}`}>
       <header className="hero">
         <div className="hero-topbar">
           <div>
             <h1>{t.appTitle}</h1>
-            <p>{t.appSubtitle}</p>
+            {!printLayout ? <p>{t.appSubtitle}</p> : null}
           </div>
-          <div className="language-toggle" role="group" aria-label={t.languageLabel}>
+          <div className="header-actions">
+            {!printLayout ? (
+              <div className="language-toggle" role="group" aria-label={t.languageLabel}>
+                <button
+                  type="button"
+                  className={`language-toggle-button ${locale === "sv" ? "active" : ""}`}
+                  onClick={() => setLocale("sv")}
+                  aria-pressed={locale === "sv"}
+                >
+                  SV
+                </button>
+                <button
+                  type="button"
+                  className={`language-toggle-button ${locale === "en" ? "active" : ""}`}
+                  onClick={() => setLocale("en")}
+                  aria-pressed={locale === "en"}
+                >
+                  EN
+                </button>
+              </div>
+            ) : null}
             <button
               type="button"
-              className={`language-toggle-button ${locale === "sv" ? "active" : ""}`}
-              onClick={() => setLocale("sv")}
-              aria-pressed={locale === "sv"}
+              className="action-button compact-button layout-switch-button"
+              onClick={() => setPrintLayout((current) => !current)}
+              aria-pressed={printLayout}
+              aria-label={t.printLayoutLabel}
             >
-              SV
-            </button>
-            <button
-              type="button"
-              className={`language-toggle-button ${locale === "en" ? "active" : ""}`}
-              onClick={() => setLocale("en")}
-              aria-pressed={locale === "en"}
-            >
-              EN
+              {printLayout ? t.workflowLayoutButton : t.printLayoutButton}
             </button>
           </div>
         </div>
       </header>
+      {printLayout ? (
+        <section className="panel report-paper">
+          <section className="report-section">
+            <div className="report-heading-row">
+              <h2>{t.reportValuesTitle}</h2>
+            </div>
+            <div className="report-values-grid">
+              <article className="report-values-card">
+                <h3>{t.reportEnteredTitle}</h3>
+                <dl className="report-definition-list">
+                  <div><dt>{t.reportDeltaVLabel}</dt><dd>{formattedDeltaV} cm³</dd></div>
+                  <div><dt>{t.reportRatioLabel}</dt><dd>{formattedVolumeRatio}</dd></div>
+                  <div><dt>{t.reportPMinLabel}</dt><dd>{formattedPMin} 10⁵ Pa</dd></div>
+                  <div><dt>{t.reportPMaxLabel}</dt><dd>{formattedPMax} 10⁵ Pa</dd></div>
+                  <div><dt>{t.reportTColdLabel}</dt><dd>{formattedTCold} K</dd></div>
+                  <div><dt>{t.reportTHotLabel}</dt><dd>{formattedTHot} K</dd></div>
+                </dl>
+              </article>
+              <article className="report-values-card">
+                <h3>{t.reportCalculatedTitle}</h3>
+                <dl className="report-definition-list">
+                  <div><dt>{t.reportVMinLabel}</dt><dd>{formattedDerivedVMin} cm³</dd></div>
+                  <div><dt>{t.reportVMaxLabel}</dt><dd>{formattedDerivedVMax} cm³</dd></div>
+                  <div><dt>{t.reportPixelAreaLabel}</dt><dd>{pixelArea > 0 ? pixelArea.toFixed(0) : "--"}</dd></div>
+                  <div><dt>{t.reportMeasuredWorkLabel}</dt><dd>{formattedCalibratedArea} mJ</dd></div>
+                  <div><dt>{t.reportIdealWorkLabel}</dt><dd>{formattedStirlingWorkJ}</dd></div>
+                </dl>
+              </article>
+            </div>
+          </section>
 
+          <section className="report-section report-figure-section">
+            <div className="report-heading-row">
+              <h2>{t.reportImageTitle}</h2>
+            </div>
+            {previewSection}
+          </section>
+        </section>
+      ) : (
+        <>
       <section className="panel controls">
         <div className="workflow-step">
           <div className="step-inline">
@@ -362,9 +879,9 @@ export function App() {
               <button
                 type="button"
                 className="action-button compact-button prominent-button"
-                onClick={onUploadButtonClick}
+                onClick={hasCustomImage ? resetToDefaultImage : onUploadButtonClick}
               >
-                {t.uploadLabel}
+                {hasCustomImage ? t.clearImageLabel : t.uploadLabel}
               </button>
             </div>
           </div>
@@ -426,12 +943,12 @@ export function App() {
           <div className="calibration-row">
             <div className="calibration-grid">
               <div className="field-row compact-field">
-                <label htmlFor="v-min"><Variable symbol="V" subscript="min" /> <Unit text="cm3" /></label>
-                <input id="v-min" type="text" inputMode="decimal" value={vMin} onChange={(event) => setVMin(event.target.value)} />
+                <label htmlFor="delta-v">ΔV <Unit text="cm3" /></label>
+                <input id="delta-v" type="text" inputMode="decimal" value={deltaV} onChange={(event) => setDeltaV(event.target.value)} />
               </div>
               <div className="field-row compact-field">
-                <label htmlFor="v-max"><Variable symbol="V" subscript="max" /> <Unit text="cm3" /></label>
-                <input id="v-max" type="text" inputMode="decimal" value={vMax} onChange={(event) => setVMax(event.target.value)} />
+                <label htmlFor="volume-ratio"><em>r</em> = <Variable symbol="V" subscript="max" /> / <Variable symbol="V" subscript="min" /></label>
+                <input id="volume-ratio" type="text" inputMode="decimal" value={volumeRatio} onChange={(event) => setVolumeRatio(event.target.value)} />
               </div>
               <div className="field-row compact-field">
                 <label htmlFor="p-min"><Variable symbol="p" subscript="min" /> <Unit text="10^5 Pa" /></label>
@@ -444,9 +961,9 @@ export function App() {
             </div>
             <button
               type="button"
-              className={`action-button compact-button calibration-apply-button ${isScaleInputReady(vMin, vMax, pMin, pMax) ? "ready-button" : ""}`}
+              className={`action-button compact-button calibration-apply-button ${isScaleInputReady(deltaV, volumeRatio, pMin, pMax) ? "ready-button" : ""}`}
               onClick={onApplyScale}
-              disabled={!normalizedImageUrl || !isScaleInputReady(vMin, vMax, pMin, pMax)}
+              disabled={!normalizedImageUrl || !isScaleInputReady(deltaV, volumeRatio, pMin, pMax)}
             >
               {t.updateScaleButton}
             </button>
@@ -464,7 +981,7 @@ export function App() {
                 type="button"
                 className={`action-button compact-button ${contourStepActive ? "active-tool-button" : ""}`}
                 onClick={startContourSelection}
-                disabled={!showCalibrationAxes}
+                disabled={!showCalibrationAxes || stirlingEnabled}
               >
                 {contourPoints.length > 0 ? t.restartContourButton : t.startContourButton}
               </button>
@@ -472,426 +989,77 @@ export function App() {
           </div>
         </div>
 
-        <section className="instrument-panel-grid">
-          <article className="instrument-panel">
-            <div className="instrument-head">
-              <span className="instrument-label">{t.pixelAreaLabel}</span>
-              <HelpBadge text={t.pixelAreaHelp} />
+        <div className="workflow-step">
+          <div className="step-inline align-start">
+            <div className="step-heading">
+              <h2>{t.step5Title}</h2>
+              <HelpBadge text={t.stirlingHelp} />
             </div>
-            <strong className="instrument-value">{pixelArea > 0 ? pixelArea.toFixed(0) : "--"}</strong>
-          </article>
-          <article className="instrument-panel accent-panel">
-            <div className="instrument-head">
-              <span className="instrument-label">{t.calibratedAreaLabel}</span>
-              <HelpBadge text={t.calibratedAreaHelp} />
+            <div className="language-toggle" role="group" aria-label={t.step5Title}>
+              <button
+                type="button"
+                className={`language-toggle-button ${!stirlingEnabled ? "active" : ""}`}
+                onClick={() => stirlingEnabled && onToggleStirling()}
+                disabled={!showCalibrationAxes}
+                aria-pressed={!stirlingEnabled}
+              >
+                {t.stirlingOffLabel}
+              </button>
+              <button
+                type="button"
+                className={`language-toggle-button ${stirlingEnabled ? "active" : ""}`}
+                onClick={() => !stirlingEnabled && onToggleStirling()}
+                disabled={!showCalibrationAxes}
+                aria-pressed={stirlingEnabled}
+              >
+                {t.stirlingOnLabel}
+              </button>
             </div>
-            <div className="instrument-reading">
-              <strong className="instrument-value">{formattedCalibratedArea}</strong>
-              <span className="instrument-unit">mJ</span>
-            </div>
-          </article>
-        </section>
-      </section>
-
-      <section className="panel preview">
-        {previewImageUrl ? (
-          hasImageSize ? (
-            <div
-              className={`image-wrap ${(clickTarget ? "calibration-active" : "") + (cornerStepActive ? " corners-active" : "") + (contourStepActive ? " guide-active" : "")}`}
-              style={{
-                position: "relative",
-                width: "100%",
-                maxWidth: "92%",
-                aspectRatio: `${plotWidth} / ${plotHeight}`
-              }}
-              onPointerMove={(event) => {
-                updateDraggingContourPoint(event);
-                updateDraggingCornerPoint(event);
-              }}
-              onPointerUp={() => {
-                setDraggingContourIndex(null);
-                setDraggingCornerIndex(null);
-              }}
-              onPointerLeave={() => {
-                setDraggingContourIndex(null);
-                setDraggingCornerIndex(null);
-              }}
-              onPointerCancel={() => {
-                setDraggingContourIndex(null);
-                setDraggingCornerIndex(null);
-              }}
-            >
-              <div className="image-plane" style={plotAreaStyle}>
-                <img
-                  ref={previewImageRef}
-                  src={previewImageUrl}
-                  alt={t.previewAlt}
-                  onLoad={onPreviewImageLoad}
-                  onClick={onPreviewClick}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    height: "100%"
-                  }}
-                />
-
-              {contourClosed ? (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "rgba(255,255,255,0.26)",
-                    pointerEvents: "none",
-                    zIndex: 1
-                  }}
-                />
-              ) : null}
-
-              {cornerPoints.map((pt, idx) => (
-                <div
-                  key={`corner-${idx}`}
-                  style={{
-                    position: "absolute",
-                    left: `${(pt.x / imageWidth) * 100}%`,
-                    top: `${(pt.y / imageHeight) * 100}%`,
-                    width: 10,
-                    height: 10,
-                    background: "red",
-                    borderRadius: idx === 0 ? "30%" : "50%",
-                    cursor: "grab",
-                    transform: "translate(-50%, -50%)",
-                    zIndex: 10
-                  }}
-                  onPointerDown={(event) => onCornerPointPointerDown(event, idx)}
-                />
-              ))}
-
-              {cornerPoints.length === 4 ? (
-                <svg
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    width: "100%",
-                    height: "100%",
-                    pointerEvents: "none",
-                    zIndex: 9
-                  }}
-                  width={imageWidth}
-                  height={imageHeight}
-                  viewBox={`0 0 ${imageWidth} ${imageHeight}`}
-                >
-                  <polygon
-                    points={orderedCornerPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-                    fill="rgba(255,0,0,0.1)"
-                    stroke="red"
-                    strokeWidth="3"
-                  />
-                </svg>
-              ) : null}
-
-              {!showCalibrationAxes && maxPoint ? (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: `${(maxPoint.x / imageWidth) * 100}%`,
-                    top: `${(maxPoint.y / imageHeight) * 100}%`,
-                    width: 10,
-                    height: 10,
-                    background: "#2e86ab",
-                    border: "2px solid #f4f8fb",
-                    borderRadius: "50%",
-                    transform: "translate(-50%, -50%)",
-                    zIndex: 8
-                  }}
-                />
-              ) : null}
-
-              {!showCalibrationAxes && minPoint ? (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: `${(minPoint.x / imageWidth) * 100}%`,
-                    top: `${(minPoint.y / imageHeight) * 100}%`,
-                    width: 10,
-                    height: 10,
-                    background: "#2e86ab",
-                    border: "2px solid #f4f8fb",
-                    borderRadius: "50%",
-                    transform: "translate(-50%, -50%)",
-                    zIndex: 8
-                  }}
-                />
-              ) : null}
-
-              {contourClosed ? (
-                <svg
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    width: "100%",
-                    height: "100%",
-                    zIndex: 10
-                  }}
-                  width={imageWidth}
-                  height={imageHeight}
-                  viewBox={`0 0 ${imageWidth} ${imageHeight}`}
-                >
-                  {contourPoints.map((pt, idx) => {
-                    const next = contourPoints[(idx + 1) % contourPoints.length];
-                    return (
-                      <line
-                        key={`segment-hit-${idx}`}
-                        x1={pt.x}
-                        y1={pt.y}
-                        x2={next.x}
-                        y2={next.y}
-                        stroke="transparent"
-                        strokeWidth="18"
-                        onClick={(event) => onContourSegmentClick(event, idx)}
-                      />
-                    );
-                  })}
-                  <polygon
-                    points={contourPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-                    fill="rgba(255,176,0,0.08)"
-                    stroke="rgba(255,176,0,0.7)"
-                    strokeWidth="3"
-                    strokeDasharray="8 6"
-                    pointerEvents="none"
-                  />
-                </svg>
-              ) : contourPoints.length >= 2 ? (
-                <svg
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    width: "100%",
-                    height: "100%",
-                    pointerEvents: "none",
-                    zIndex: 10
-                  }}
-                  width={imageWidth}
-                  height={imageHeight}
-                  viewBox={`0 0 ${imageWidth} ${imageHeight}`}
-                >
-                  <polyline
-                    points={contourPoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-                    fill="none"
-                    stroke="rgba(255,176,0,0.9)"
-                    strokeWidth="3"
-                    strokeDasharray="8 6"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              ) : null}
-
-              {contourPoints.map((pt, idx) => (
-                <div
-                  key={`contour-${idx}`}
-                  style={{
-                    position: "absolute",
-                    left: `${(pt.x / imageWidth) * 100}%`,
-                    top: `${(pt.y / imageHeight) * 100}%`,
-                    width: 10,
-                    height: 10,
-                    background: "#ffb000",
-                    borderRadius: idx === 0 ? "30%" : "50%",
-                    cursor: contourClosed ? "grab" : "default",
-                    transform: "translate(-50%, -50%)",
-                    zIndex: 11,
-                    pointerEvents: contourClosed ? "auto" : "none"
-                  }}
-                  onPointerDown={contourClosed ? (event) => onContourPointPointerDown(event, idx) : undefined}
-                />
-              ))}
-
-              {!cornerStepActive && outlinePoints.length >= 3 ? (
-                <svg
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    width: "100%",
-                    height: "100%",
-                    pointerEvents: "none",
-                    zIndex: 8
-                  }}
-                  width={imageWidth}
-                  height={imageHeight}
-                  viewBox={`0 0 ${imageWidth} ${imageHeight}`}
-                >
-                  <polygon
-                    points={outlinePoints.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-                    fill="none"
-                    stroke="#d62828"
-                    strokeWidth="4"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              ) : null}
-              </div>
-
-              {showCalibrationAxes && calibrationOverlay ? (
-                <svg
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    width: "100%",
-                    height: "100%",
-                    pointerEvents: "none",
-                    zIndex: 7
-                  }}
-                  width={plotWidth}
-                  height={plotHeight}
-                  viewBox={`0 0 ${plotWidth} ${plotHeight}`}
-                >
-                <defs>
-                  <marker
-                    id="axis-arrow"
-                    markerWidth="10"
-                    markerHeight="10"
-                    refX="7"
-                    refY="5"
-                    orient="auto"
-                    markerUnits="strokeWidth"
-                  >
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#2e86ab" />
-                  </marker>
-                </defs>
-                <line
-                  x1={calibrationOverlay.xAxisStart.x}
-                  y1={calibrationOverlay.xAxisStart.y}
-                  x2={calibrationOverlay.xAxisEnd.x}
-                  y2={calibrationOverlay.xAxisEnd.y}
-                  stroke="rgba(255,255,255,0.9)"
-                  strokeWidth="5.5"
-                />
-                <line
-                  x1={calibrationOverlay.xAxisStart.x}
-                  y1={calibrationOverlay.xAxisStart.y}
-                  x2={calibrationOverlay.xAxisEnd.x}
-                  y2={calibrationOverlay.xAxisEnd.y}
-                  stroke="#2e86ab"
-                  strokeWidth="2.5"
-                  markerEnd="url(#axis-arrow)"
-                />
-                <line
-                  x1={calibrationOverlay.yAxisStart.x}
-                  y1={calibrationOverlay.yAxisStart.y}
-                  x2={calibrationOverlay.yAxisEnd.x}
-                  y2={calibrationOverlay.yAxisEnd.y}
-                  stroke="rgba(255,255,255,0.9)"
-                  strokeWidth="5.5"
-                />
-                <line
-                  x1={calibrationOverlay.yAxisStart.x}
-                  y1={calibrationOverlay.yAxisStart.y}
-                  x2={calibrationOverlay.yAxisEnd.x}
-                  y2={calibrationOverlay.yAxisEnd.y}
-                  stroke="#2e86ab"
-                  strokeWidth="2.5"
-                  markerEnd="url(#axis-arrow)"
-                />
-                {calibrationOverlay.xTicks.map((tick, index) => (
-                  <g key={`x-tick-${index}`}>
-                    <line x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} stroke="rgba(255,255,255,0.9)" strokeWidth="4" />
-                    <line x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} stroke="#2e86ab" strokeWidth="1.5" />
-                    <text
-                      x={tick.labelX}
-                      y={tick.labelY}
-                      fill="#124559"
-                      fontSize={calibrationOverlay.tickFontSize}
-                      fontWeight="600"
-                      textAnchor="middle"
-                      stroke="rgba(255,255,255,0.92)"
-                      strokeWidth="3"
-                      paintOrder="stroke"
-                    >
-                      {tick.label}
-                    </text>
-                  </g>
-                ))}
-                {calibrationOverlay.yTicks.map((tick, index) => (
-                  <g key={`y-tick-${index}`}>
-                    <line x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} stroke="rgba(255,255,255,0.9)" strokeWidth="4" />
-                    <line x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} stroke="#2e86ab" strokeWidth="1.5" />
-                    <text
-                      x={tick.labelX}
-                      y={tick.labelY}
-                      fill="#124559"
-                      fontSize={calibrationOverlay.tickFontSize}
-                      fontWeight="600"
-                      textAnchor="end"
-                      stroke="rgba(255,255,255,0.92)"
-                      strokeWidth="3"
-                      paintOrder="stroke"
-                    >
-                      {tick.label}
-                    </text>
-                  </g>
-                ))}
-                  <text
-                    x={calibrationOverlay.xLabel.x}
-                    y={Math.min(plotHeight - 2, calibrationOverlay.xLabel.y)}
-                    fill="#124559"
-                    fontSize={calibrationOverlay.axisLabelFontSize}
-                  fontWeight="700"
-                  textAnchor="end"
-                  stroke="rgba(255,255,255,0.94)"
-                  strokeWidth="4"
-                  paintOrder="stroke"
-                >
-                    <tspan fontStyle="italic">V</tspan>
-                    <tspan dx="6">/ cm³</tspan>
-                  </text>
-                  <text
-                    x={calibrationOverlay.yLabel.x}
-                    y={calibrationOverlay.yLabel.y - 10}
-                    fill="#124559"
-                    fontSize={calibrationOverlay.axisLabelFontSize}
-                  fontWeight="700"
-                  textAnchor="start"
-                  stroke="rgba(255,255,255,0.94)"
-                  strokeWidth="4"
-                  paintOrder="stroke"
-                >
-                    <tspan fontStyle="italic">p</tspan>
-                    <tspan dx="6">/ 10⁵ Pa</tspan>
-                  </text>
-                </svg>
-              ) : null}
-
-            </div>
-          ) : (
-            <div
-              className="image-wrap image-wrap-loading"
-              style={{
-                position: "relative",
-                width: "100%",
-                maxWidth: "92%"
-              }}
-            >
-              <img
-                ref={previewImageRef}
-                src={previewImageUrl}
-                alt={t.previewAlt}
-                onLoad={onPreviewImageLoad}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  height: "auto"
-                }}
+          </div>
+          <div className="stirling-row">
+            <div className="field-row compact-field">
+              <label htmlFor="t-cold"><Variable symbol="T" subscript={locale === "en" ? "cold" : "kall"} /> <Unit text="K" /></label>
+              <input
+                id="t-cold"
+                type="text"
+                inputMode="decimal"
+                value={tCold}
+                onChange={(event) => setTCold(event.target.value)}
+                disabled={!showCalibrationAxes}
               />
             </div>
-          )
-        ) : (
-          <p>{t.noImageText}</p>
-        )}
+            <div className="field-row compact-field">
+              <label htmlFor="t-hot"><Variable symbol="T" subscript={locale === "en" ? "hot" : "varm"} /> <Unit text="K" /></label>
+              <input
+                id="t-hot"
+                type="text"
+                inputMode="decimal"
+                value={tHot}
+                onChange={(event) => setTHot(event.target.value)}
+                disabled={!showCalibrationAxes}
+              />
+            </div>
+            {stirlingEnabled ? (
+              <div className="stirling-readout">
+                <span className="stirling-readout-label">{t.stirlingWorkLabel}</span>
+                <strong className="stirling-readout-value">{stirlingWorkJ !== null ? formatSigJ(stirlingWorkJ) : "--"}</strong>
+              </div>
+            ) : null}
+          </div>
+          {stirlingWarnings.length > 0 ? (
+            <div className="warning-stack">
+              {stirlingWarnings.map((warning) => (
+                <p key={warning} className="warning-text">{warning}</p>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </section>
+
+      {previewSection}
+      {resultPanels}
+        </>
+      )}
 
       <footer className="app-footer">
         <small>{t.copyrightText}</small>
@@ -1148,6 +1316,28 @@ function formatLocaleNumber(value: number, locale: Locale, maximumFractionDigits
   }).format(value);
 }
 
+function formatDisplayInput(value: string, locale: Locale, maximumFractionDigits: number): string {
+  const parsed = parseNumericInput(value);
+  if (!Number.isFinite(parsed)) {
+    return value || "--";
+  }
+
+  return new Intl.NumberFormat(locale === "sv" ? "sv-SE" : "en-US", {
+    maximumFractionDigits
+  }).format(parsed);
+}
+
+function formatDerivedValue(value: string, locale: Locale, maximumFractionDigits: number): string {
+  const parsed = parseNumericInput(value);
+  if (!Number.isFinite(parsed)) {
+    return "--";
+  }
+
+  return new Intl.NumberFormat(locale === "sv" ? "sv-SE" : "en-US", {
+    maximumFractionDigits
+  }).format(parsed);
+}
+
 function orderCornersForQuad(points: Point[]): Point[] {
   if (points.length !== 4) {
     return points;
@@ -1205,15 +1395,143 @@ function Unit({ text }: { text: string }) {
     return <span className="unit-label">/ 10⁵ Pa</span>;
   }
 
+  if (text === "K") {
+    return <span className="unit-label">/ K</span>;
+  }
+
   return <span className="unit-label">/ {text}</span>;
 }
 
-function getImagePoint(event: MouseEvent<Element>, image: HTMLImageElement): Point {
+function getImagePoint(
+  event: MouseEvent<Element> | ReactPointerEvent<Element>,
+  image: HTMLImageElement,
+  width: number,
+  height: number
+): Point {
   const rect = image.getBoundingClientRect();
+  const targetWidth = width > 1 ? width : image.naturalWidth;
+  const targetHeight = height > 1 ? height : image.naturalHeight;
   return {
-    x: ((event.clientX - rect.left) / rect.width) * image.naturalWidth,
-    y: ((event.clientY - rect.top) / rect.height) * image.naturalHeight
+    x: ((event.clientX - rect.left) / rect.width) * targetWidth,
+    y: ((event.clientY - rect.top) / rect.height) * targetHeight
   };
+}
+
+function buildStirlingOverlayPoints(input: {
+  topLeft: Point | null;
+  bottomRight: Point | null;
+  vMin: string;
+  vMax: string;
+  pMin: string;
+  pMax: string;
+  tCold: string;
+  tHot: string;
+}): Point[] {
+  if (!input.topLeft || !input.bottomRight) {
+    return [];
+  }
+
+  const vMin = parseNumericInput(input.vMin);
+  const vMax = parseNumericInput(input.vMax);
+  const pMin = parseNumericInput(input.pMin);
+  const pMax = parseNumericInput(input.pMax);
+  const tCold = parseNumericInput(input.tCold);
+  const tHot = parseNumericInput(input.tHot);
+
+  if (
+    !Number.isFinite(vMin) ||
+    !Number.isFinite(vMax) ||
+    !Number.isFinite(pMin) ||
+    !Number.isFinite(pMax) ||
+    !Number.isFinite(tCold) ||
+    !Number.isFinite(tHot) ||
+    vMax <= vMin ||
+    pMin <= 0 ||
+    pMax <= pMin ||
+    tCold <= 0 ||
+    tHot <= 0
+  ) {
+    return [];
+  }
+
+  const ratio = tHot / tCold;
+  const p1 = pMin;
+  const p3 = p1 * (vMax / vMin) * ratio;
+  const coldCurve: Point[] = [];
+  const hotCurve: Point[] = [];
+  const steps = 48;
+
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i / steps;
+    const volumeCold = vMax - (vMax - vMin) * t;
+    const coldPressure = p1 * vMax / volumeCold;
+    coldCurve.push(mapPvToPlot(volumeCold, coldPressure, input.topLeft, input.bottomRight, vMin, vMax, pMin, pMax));
+
+    const volumeHot = vMin + (vMax - vMin) * t;
+    const hotPressure = p3 * vMin / volumeHot;
+    hotCurve.push(mapPvToPlot(volumeHot, hotPressure, input.topLeft, input.bottomRight, vMin, vMax, pMin, pMax));
+  }
+
+  return [...coldCurve, mapPvToPlot(vMin, p3, input.topLeft, input.bottomRight, vMin, vMax, pMin, pMax), ...hotCurve.slice(1)];
+}
+
+function getStirlingWorkJ(input: {
+  vMin: string;
+  vMax: string;
+  pMin: string;
+  tCold: string;
+  tHot: string;
+}): number | null {
+  const vMin = parseNumericInput(input.vMin);
+  const vMax = parseNumericInput(input.vMax);
+  const pMin = parseNumericInput(input.pMin);
+  const tCold = parseNumericInput(input.tCold);
+  const tHot = parseNumericInput(input.tHot);
+
+  if (
+    !Number.isFinite(vMin) ||
+    !Number.isFinite(vMax) ||
+    !Number.isFinite(pMin) ||
+    !Number.isFinite(tCold) ||
+    !Number.isFinite(tHot) ||
+    vMax <= vMin ||
+    pMin <= 0 ||
+    tCold <= 0 ||
+    tHot <= tCold
+  ) {
+    return null;
+  }
+
+  const nRGraphUnits = (pMin * vMax) / tCold;
+  const workGraphUnits = nRGraphUnits * (tHot - tCold) * Math.log(vMax / vMin);
+  return workGraphUnits * 0.1;
+}
+
+function formatSigJ(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "--";
+  }
+
+  if (value === 0) {
+    return "0 J";
+  }
+
+  return `${Number(value.toPrecision(4)).toString()} J`;
+}
+
+function mapPvToPlot(
+  volume: number,
+  pressure: number,
+  topLeft: Point,
+  bottomRight: Point,
+  vMin: number,
+  vMax: number,
+  pMin: number,
+  pMax: number
+): Point {
+  const x = topLeft.x + ((volume - vMin) / (vMax - vMin)) * (bottomRight.x - topLeft.x);
+  const y = topLeft.y + ((pressure - pMax) / (pMin - pMax)) * (bottomRight.y - topLeft.y);
+  return { x, y };
 }
 
 function isNearPoint(a: Point, b: Point, radius: number): boolean {
@@ -1323,6 +1641,18 @@ function parseNumericInput(value: string): number {
   return Number(value.replace(",", ".").trim());
 }
 
-function isScaleInputReady(vMin: string, vMax: string, pMin: string, pMax: string): boolean {
-  return [vMin, vMax, pMin, pMax].every((value) => Number.isFinite(parseNumericInput(value)));
+function isScaleInputReady(deltaV: string, volumeRatio: string, pMin: string, pMax: string): boolean {
+  const deltaVValue = parseNumericInput(deltaV);
+  const ratioValue = parseNumericInput(volumeRatio);
+  const pMinValue = parseNumericInput(pMin);
+  const pMaxValue = parseNumericInput(pMax);
+
+  return (
+    Number.isFinite(deltaVValue) &&
+    Number.isFinite(ratioValue) &&
+    Number.isFinite(pMinValue) &&
+    Number.isFinite(pMaxValue) &&
+    deltaVValue > 0 &&
+    ratioValue > 1
+  );
 }
