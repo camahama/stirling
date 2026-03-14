@@ -622,12 +622,66 @@ button:disabled,
 
   .app-shell {
     max-width: 210mm;
-    min-height: 297mm;
+    min-height: auto;
     padding: 0;
+    gap: 0.35rem;
     background: #fff;
   }
 
   .header-actions {
+    display: none;
+  }
+
+  .hero {
+    padding: 0.7rem 0.85rem;
+  }
+
+  .report-paper {
+    gap: 0.45rem;
+    padding: 0.65rem 0.75rem 0.7rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-section {
+    gap: 0.35rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-heading-row {
+    padding-bottom: 0.2rem;
+  }
+
+  .report-values-grid {
+    gap: 0.45rem;
+  }
+
+  .report-values-card {
+    gap: 0.35rem;
+    padding: 0.55rem 0.65rem;
+  }
+
+  .report-definition-list {
+    gap: 0.2rem;
+  }
+
+  .report-definition-list div {
+    padding-bottom: 0.12rem;
+  }
+
+  .report-preview-panel {
+    padding: 0.2rem 0.25rem 0.25rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-preview-panel .image-wrap {
+    max-width: 84% !important;
+    margin: 0 auto;
+  }
+
+  .app-footer {
     display: none;
   }
 
