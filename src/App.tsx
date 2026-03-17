@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, MouseEvent, PointerEvent as ReactPointerEvent, SyntheticEvent } from "react";
 import { messages, type Locale } from "./i18n/messages";
 import { normalizeWhiteboardImage, type Point as OutlinePoint } from "./utils/normalizeImage";
@@ -53,6 +53,7 @@ export function App() {
 
   const previewImageRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadedObjectUrlRef = useRef<string | null>(null);
 
   const t = useMemo(() => messages[locale], [locale]);
   const hasCustomImage =
@@ -82,13 +83,26 @@ export function App() {
     height: `${(imageHeight / plotHeight) * 100}%`
   };
 
+  const revokeUploadedObjectUrl = () => {
+    if (uploadedObjectUrlRef.current?.startsWith("blob:")) {
+      URL.revokeObjectURL(uploadedObjectUrlRef.current);
+    }
+    uploadedObjectUrlRef.current = null;
+  };
+
+  useEffect(() => () => {
+    revokeUploadedObjectUrl();
+  }, []);
+
   const onImageSelected = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
     }
 
+    revokeUploadedObjectUrl();
     const nextUrl = URL.createObjectURL(file);
+    uploadedObjectUrlRef.current = nextUrl;
     setImageSize(null);
     setSourceImageUrl(nextUrl);
     setNormalizedImageUrl(null);
@@ -109,6 +123,7 @@ export function App() {
   };
 
   const resetToDefaultImage = () => {
+    revokeUploadedObjectUrl();
     setImageSize({ x: DEFAULT_IMAGE_SIZE, y: DEFAULT_IMAGE_SIZE });
     setSourceImageUrl(DEFAULT_IMAGE_DATA_URL);
     setNormalizedImageUrl(DEFAULT_IMAGE_DATA_URL);
@@ -131,6 +146,9 @@ export function App() {
       setNormalizedImageUrl(normalized.normalizedDataUrl);
       resetContour();
       resetCalibration();
+    };
+    img.onerror = () => {
+      setNormalizedImageUrl(sourceImageUrl);
     };
     img.src = sourceImageUrl;
   };
@@ -424,7 +442,9 @@ export function App() {
                 ref={previewImageRef}
                 src={previewImageUrl}
                 alt={t.previewAlt}
+                draggable={false}
                 onLoad={onPreviewImageLoad}
+                onDragStart={(event) => event.preventDefault()}
                 onClick={printLayout ? undefined : onPreviewClick}
                 style={{
                   display: "block",
@@ -741,7 +761,9 @@ export function App() {
               ref={previewImageRef}
               src={previewImageUrl}
               alt={t.previewAlt}
+              draggable={false}
               onLoad={onPreviewImageLoad}
+              onDragStart={(event) => event.preventDefault()}
               style={{
                 display: "block",
                 width: "100%",
@@ -1411,10 +1433,19 @@ function getImagePoint(
   const rect = image.getBoundingClientRect();
   const targetWidth = width > 1 ? width : image.naturalWidth;
   const targetHeight = height > 1 ? height : image.naturalHeight;
+  const relativeX = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0;
+  const relativeY = rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0;
   return {
-    x: ((event.clientX - rect.left) / rect.width) * targetWidth,
-    y: ((event.clientY - rect.top) / rect.height) * targetHeight
+    x: clamp(relativeX * targetWidth, 0, targetWidth),
+    y: clamp(relativeY * targetHeight, 0, targetHeight)
   };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  return Math.min(max, Math.max(min, value));
 }
 
 function buildStirlingOverlayPoints(input: {

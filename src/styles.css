@@ -237,7 +237,6 @@ body {
 }
 
 button:disabled,
-.action-button:has(input:disabled),
 .language-toggle-button:disabled {
   cursor: not-allowed;
   background: #e4eaee;
@@ -437,6 +436,8 @@ button:disabled,
   margin: 0 auto;
   background: #fff;
   object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .panel.preview {
