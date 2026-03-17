@@ -453,6 +453,11 @@ button:disabled,
   padding: 0 2rem 1rem;
 }
 
+.visual-column {
+  display: grid;
+  gap: 1rem;
+}
+
 .result-panels .instrument-panel-grid {
   width: 92%;
   margin: 0 auto;
@@ -705,15 +710,9 @@ button:disabled,
     grid-column: 1;
   }
 
-  .preview {
+  .visual-column {
     grid-column: 2;
-    grid-row: 1 / span 2;
-    align-self: start;
-  }
-
-  .result-panels {
-    grid-column: 2;
-    grid-row: 3;
+    grid-row: 1 / span 3;
     align-self: start;
   }
 

@@ -1078,8 +1078,10 @@ export function App() {
         </div>
       </section>
 
-      {previewSection}
-      {resultPanels}
+      <div className="visual-column">
+        {previewSection}
+        {resultPanels}
+      </div>
         </>
       )}
 
