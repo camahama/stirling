@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent, MouseEvent, PointerEvent as ReactPointerEvent, SyntheticEvent } from "react";
+import type { ChangeEvent, MouseEvent, PointerEvent as ReactPointerEvent, ReactNode, SyntheticEvent } from "react";
 import { messages, type Locale } from "./i18n/messages";
 import { normalizeWhiteboardImage, type Point as OutlinePoint } from "./utils/normalizeImage";
 
@@ -29,12 +29,6 @@ export function App() {
   const [volumeRatio, setVolumeRatio] = useState<string>("2");
   const [pMax, setPMax] = useState<string>("1");
   const [pMin, setPMin] = useState<string>("0");
-  const [appliedScale, setAppliedScale] = useState({
-    vMax: "1",
-    vMin: "0",
-    pMax: "1",
-    pMin: "0"
-  });
   const [maxPoint, setMaxPoint] = useState<Point | null>(null);
   const [minPoint, setMinPoint] = useState<Point | null>(null);
   const [clickTarget, setClickTarget] = useState<ClickTarget>(null);
@@ -59,6 +53,10 @@ export function App() {
   const hasCustomImage =
     sourceImageUrl !== DEFAULT_IMAGE_DATA_URL || normalizedImageUrl !== DEFAULT_IMAGE_DATA_URL;
   const previewImageUrl = normalizedImageUrl ?? sourceImageUrl;
+  const appliedScale = useMemo(
+    () => deriveAppliedScale(deltaV, volumeRatio, pMin, pMax),
+    [deltaV, volumeRatio, pMin, pMax]
+  );
   const outlinePoints = contourClosed ? contourPoints : [];
   const orderedCornerPoints = cornerPoints.length === 4 ? orderCornersForQuad(cornerPoints) : cornerPoints;
   const imageWidth = imageSize?.x || 1;
@@ -276,12 +274,6 @@ export function App() {
     setVolumeRatio("2");
     setPMax("1");
     setPMin("0");
-    setAppliedScale({
-      vMax: "2",
-      vMin: "1",
-      pMax: "1",
-      pMin: "0"
-    });
     setMaxPoint(null);
     setMinPoint(null);
     setClickTarget(null);
@@ -365,20 +357,7 @@ export function App() {
           tHot
         })
       : null;
-  const formattedStirlingWorkJ = stirlingWorkJ !== null ? formatSigJ(stirlingWorkJ) : "--";
-
-  const onApplyScale = () => {
-    const deltaVValue = parseNumericInput(deltaV);
-    const ratioValue = parseNumericInput(volumeRatio);
-    const derivedVMin = deltaVValue / (ratioValue - 1);
-    const derivedVMax = (deltaVValue * ratioValue) / (ratioValue - 1);
-    setAppliedScale({
-      vMin: String(derivedVMin),
-      vMax: String(derivedVMax),
-      pMin,
-      pMax
-    });
-  };
+  const formattedStirlingWork = stirlingWorkJ !== null ? formatSigValue(stirlingWorkJ) : "--";
 
   const onToggleStirling = () => {
     setStirlingEnabled((current) => {
@@ -853,22 +832,22 @@ export function App() {
               <article className="report-values-card">
                 <h3>{t.reportEnteredTitle}</h3>
                 <dl className="report-definition-list">
-                  <div><dt>{t.reportDeltaVLabel}</dt><dd>{formattedDeltaV} cm³</dd></div>
-                  <div><dt>{t.reportRatioLabel}</dt><dd>{formattedVolumeRatio}</dd></div>
-                  <div><dt>{t.reportPMinLabel}</dt><dd>{formattedPMin} 10⁵ Pa</dd></div>
-                  <div><dt>{t.reportPMaxLabel}</dt><dd>{formattedPMax} 10⁵ Pa</dd></div>
-                  <div><dt>{t.reportTColdLabel}</dt><dd>{formattedTCold} K</dd></div>
-                  <div><dt>{t.reportTHotLabel}</dt><dd>{formattedTHot} K</dd></div>
+                  <div><dt><ReportVariableLabel symbol="ΔV" /></dt><dd><ReportValue value={formattedDeltaV} unit={<ReportUnitLabel text="cm³" />} /></dd></div>
+                  <div><dt><ReportVariableLabel symbol="r" italic /></dt><dd><ReportValue value={formattedVolumeRatio} /></dd></div>
+                  <div><dt><ReportVariableLabel symbol="p" subscript="min" /></dt><dd><ReportValue value={formattedPMin} unit={<ReportUnitLabel text="· 10^5 Pa" />} /></dd></div>
+                  <div><dt><ReportVariableLabel symbol="p" subscript="max" /></dt><dd><ReportValue value={formattedPMax} unit={<ReportUnitLabel text="· 10^5 Pa" />} /></dd></div>
+                  <div><dt><ReportVariableLabel symbol="T" subscript={locale === "en" ? "cold" : "kall"} /></dt><dd><ReportValue value={formattedTCold} unit={<ReportUnitLabel text="K" />} /></dd></div>
+                  <div><dt><ReportVariableLabel symbol="T" subscript={locale === "en" ? "hot" : "varm"} /></dt><dd><ReportValue value={formattedTHot} unit={<ReportUnitLabel text="K" />} /></dd></div>
                 </dl>
               </article>
               <article className="report-values-card">
                 <h3>{t.reportCalculatedTitle}</h3>
                 <dl className="report-definition-list">
-                  <div><dt>{t.reportVMinLabel}</dt><dd>{formattedDerivedVMin} cm³</dd></div>
-                  <div><dt>{t.reportVMaxLabel}</dt><dd>{formattedDerivedVMax} cm³</dd></div>
-                  <div><dt>{t.reportPixelAreaLabel}</dt><dd>{pixelArea > 0 ? pixelArea.toFixed(0) : "--"}</dd></div>
-                  <div><dt>{t.reportMeasuredWorkLabel}</dt><dd>{formattedCalibratedArea} mJ</dd></div>
-                  <div><dt>{t.reportIdealWorkLabel}</dt><dd>{formattedStirlingWorkJ}</dd></div>
+                  <div><dt><ReportVariableLabel symbol="V" subscript="min" /></dt><dd><ReportValue value={formattedDerivedVMin} unit={<ReportUnitLabel text="cm³" />} /></dd></div>
+                  <div><dt><ReportVariableLabel symbol="V" subscript="max" /></dt><dd><ReportValue value={formattedDerivedVMax} unit={<ReportUnitLabel text="cm³" />} /></dd></div>
+                  <div><dt>{t.reportPixelAreaLabel}</dt><dd><ReportValue value={pixelArea > 0 ? pixelArea.toFixed(0) : "--"} /></dd></div>
+                  <div><dt>{t.reportMeasuredWorkLabel}</dt><dd><ReportValue value={formattedCalibratedArea} unit={<ReportUnitLabel text="mJ" />} /></dd></div>
+                  <div><dt>{t.reportIdealWorkLabel}</dt><dd><ReportValue value={formattedStirlingWork} unit={<ReportUnitLabel text="J" />} /></dd></div>
                 </dl>
               </article>
             </div>
@@ -942,7 +921,28 @@ export function App() {
               <h2>{t.step3Title}</h2>
               <HelpBadge text={t.calibrationHelp} />
             </div>
-            <div className="button-row tight-row">
+          </div>
+
+          <div className="calibration-row">
+            <div className="calibration-grid">
+              <div className="field-row compact-field">
+                <label htmlFor="delta-v">ΔV <Unit text="cm3" /></label>
+                <input id="delta-v" type="text" inputMode="decimal" value={deltaV} onChange={(event) => setDeltaV(event.target.value)} />
+              </div>
+              <div className="field-row compact-field">
+                <label htmlFor="p-min"><Variable symbol="p" subscript="min" /> <Unit text="10^5 Pa" /></label>
+                <input id="p-min" type="text" inputMode="decimal" value={pMin} onChange={(event) => setPMin(event.target.value)} />
+              </div>
+              <div className="field-row compact-field">
+                <label htmlFor="volume-ratio"><em>r</em> = <Variable symbol="V" subscript="max" /> / <Variable symbol="V" subscript="min" /></label>
+                <input id="volume-ratio" type="text" inputMode="decimal" value={volumeRatio} onChange={(event) => setVolumeRatio(event.target.value)} />
+              </div>
+              <div className="field-row compact-field">
+                <label htmlFor="p-max"><Variable symbol="p" subscript="max" /> <Unit text="10^5 Pa" /></label>
+                <input id="p-max" type="text" inputMode="decimal" value={pMax} onChange={(event) => setPMax(event.target.value)} />
+              </div>
+            </div>
+            <div className="calibration-button-stack">
               <button
                 type="button"
                 className={`action-button compact-button ${clickTarget === "max" ? "active-tool-button" : ""}`}
@@ -960,35 +960,6 @@ export function App() {
                 <Variable symbol="V" subscript="max" />, <Variable symbol="p" subscript="min" />
               </button>
             </div>
-          </div>
-
-          <div className="calibration-row">
-            <div className="calibration-grid">
-              <div className="field-row compact-field">
-                <label htmlFor="delta-v">ΔV <Unit text="cm3" /></label>
-                <input id="delta-v" type="text" inputMode="decimal" value={deltaV} onChange={(event) => setDeltaV(event.target.value)} />
-              </div>
-              <div className="field-row compact-field">
-                <label htmlFor="volume-ratio"><em>r</em> = <Variable symbol="V" subscript="max" /> / <Variable symbol="V" subscript="min" /></label>
-                <input id="volume-ratio" type="text" inputMode="decimal" value={volumeRatio} onChange={(event) => setVolumeRatio(event.target.value)} />
-              </div>
-              <div className="field-row compact-field">
-                <label htmlFor="p-min"><Variable symbol="p" subscript="min" /> <Unit text="10^5 Pa" /></label>
-                <input id="p-min" type="text" inputMode="decimal" value={pMin} onChange={(event) => setPMin(event.target.value)} />
-              </div>
-              <div className="field-row compact-field">
-                <label htmlFor="p-max"><Variable symbol="p" subscript="max" /> <Unit text="10^5 Pa" /></label>
-                <input id="p-max" type="text" inputMode="decimal" value={pMax} onChange={(event) => setPMax(event.target.value)} />
-              </div>
-            </div>
-            <button
-              type="button"
-              className={`action-button compact-button calibration-apply-button ${isScaleInputReady(deltaV, volumeRatio, pMin, pMax) ? "ready-button" : ""}`}
-              onClick={onApplyScale}
-              disabled={!normalizedImageUrl || !isScaleInputReady(deltaV, volumeRatio, pMin, pMax)}
-            >
-              {t.updateScaleButton}
-            </button>
           </div>
         </div>
 
@@ -1426,6 +1397,99 @@ function Unit({ text }: { text: string }) {
   return <span className="unit-label">/ {text}</span>;
 }
 
+function ReportVariableLabel({
+  symbol,
+  subscript,
+  italic = true
+}: {
+  symbol: string;
+  subscript?: string;
+  italic?: boolean;
+}) {
+  if (symbol === "ΔV") {
+    return (
+      <math className="report-math" aria-label="Delta V">
+        <mi>ΔV</mi>
+      </math>
+    );
+  }
+
+  if (subscript) {
+    return (
+      <math className="report-math" aria-label={`${symbol} ${subscript}`}>
+        <msub>
+          <mi mathvariant={italic ? "italic" : "normal"}>{symbol}</mi>
+          <mtext>{subscript}</mtext>
+        </msub>
+      </math>
+    );
+  }
+
+  return (
+    <math className="report-math" aria-label={symbol}>
+      <mi mathvariant={italic ? "italic" : "normal"}>{symbol}</mi>
+    </math>
+  );
+}
+
+function ReportUnitLabel({ text }: { text: string }) {
+  if (text === "cm³") {
+    return (
+      <msup>
+        <mtext>cm</mtext>
+        <mn>3</mn>
+      </msup>
+    );
+  }
+
+  if (text === "· 10^5 Pa") {
+    return (
+      <mrow>
+        <mo>&#x00B7;</mo>
+        <msup>
+          <mn>10</mn>
+          <mn>5</mn>
+        </msup>
+        <mtext>&nbsp;Pa</mtext>
+      </mrow>
+    );
+  }
+
+  return <mtext>{text}</mtext>;
+}
+
+function ReportValue({ value, unit }: { value: string; unit?: ReactNode }) {
+  if (!unit) {
+    return (
+      <math className="report-value-math" aria-label={value}>
+        <mtext>{value}</mtext>
+      </math>
+    );
+  }
+
+  return (
+    <math className="report-value-math" aria-label={`${value}`}>
+      <mrow>
+        <mtext>{value}</mtext>
+        <mspace width="0.22em" />
+        {unit}
+      </mrow>
+    </math>
+  );
+}
+
+function formatSigValue(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "--";
+  }
+
+  if (value === 0) {
+    return "0";
+  }
+
+  return Number(value.toPrecision(4)).toString();
+}
+
 function getImagePoint(
   event: MouseEvent<Element> | ReactPointerEvent<Element>,
   image: HTMLImageElement,
@@ -1671,21 +1735,30 @@ function getCalibratedAreaMilliJoules(points: Point[], calibration: CalibrationI
 }
 
 function parseNumericInput(value: string): number {
-  return Number(value.replace(",", ".").trim());
+  const normalized = value.replace(",", ".").trim();
+  if (normalized.length === 0) {
+    return Number.NaN;
+  }
+  return Number(normalized);
 }
 
-function isScaleInputReady(deltaV: string, volumeRatio: string, pMin: string, pMax: string): boolean {
+function deriveAppliedScale(deltaV: string, volumeRatio: string, pMin: string, pMax: string) {
   const deltaVValue = parseNumericInput(deltaV);
   const ratioValue = parseNumericInput(volumeRatio);
-  const pMinValue = parseNumericInput(pMin);
-  const pMaxValue = parseNumericInput(pMax);
 
-  return (
-    Number.isFinite(deltaVValue) &&
-    Number.isFinite(ratioValue) &&
-    Number.isFinite(pMinValue) &&
-    Number.isFinite(pMaxValue) &&
-    deltaVValue > 0 &&
-    ratioValue > 1
-  );
+  if (!Number.isFinite(deltaVValue) || !Number.isFinite(ratioValue) || deltaVValue <= 0 || ratioValue <= 1) {
+    return {
+      vMin: "",
+      vMax: "",
+      pMin,
+      pMax
+    };
+  }
+
+  return {
+    vMin: String(deltaVValue / (ratioValue - 1)),
+    vMax: String((deltaVValue * ratioValue) / (ratioValue - 1)),
+    pMin,
+    pMax
+  };
 }

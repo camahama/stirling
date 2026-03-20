@@ -276,7 +276,7 @@ button:disabled,
 
 .calibration-row {
   display: flex;
-  align-items: end;
+  align-items: start;
   justify-content: space-between;
   gap: 0.8rem;
 }
@@ -285,9 +285,14 @@ button:disabled,
   flex: 1 1 auto;
 }
 
-.calibration-apply-button {
-  align-self: end;
+.calibration-button-stack {
+  display: grid;
+  gap: 0.45rem;
   flex: 0 0 auto;
+}
+
+.calibration-button-stack .action-button {
+  width: 100%;
 }
 
 .toggle-button {
@@ -577,11 +582,22 @@ button:disabled,
 }
 
 .report-definition-list dd {
-  font-family: "Menlo", "SFMono-Regular", monospace;
+  font-family: inherit;
   font-size: 0.97rem;
   font-weight: 700;
   color: #172026;
   text-align: right;
+}
+
+math.report-math,
+math.report-value-math {
+  font-family: "STIX Two Math", "Cambria Math", "STIXGeneral", "Latin Modern Math", "Times New Roman", serif;
+  font-size: 1em;
+  line-height: 1;
+}
+
+math.report-value-math {
+  font-weight: 700;
 }
 
 .report-figure-section {
