@@ -302,6 +302,8 @@ export function App() {
     : null;
   const formattedCalibratedArea =
     calibratedArea !== null ? formatLocaleNumber(calibratedArea, locale, 3) : "--";
+  const formattedMeasuredWorkJ =
+    calibratedArea !== null ? formatLocaleNumber(calibratedArea / 1000, locale, 4) : "--";
   const formattedDeltaV = formatDisplayInput(deltaV, locale, 4);
   const formattedVolumeRatio = formatDisplayInput(volumeRatio, locale, 4);
   const formattedPMin = formatDisplayInput(pMin, locale, 4);
@@ -357,7 +359,7 @@ export function App() {
           tHot
         })
       : null;
-  const formattedStirlingWork = stirlingWorkJ !== null ? formatSigValue(stirlingWorkJ) : "--";
+  const formattedStirlingWork = stirlingWorkJ !== null ? formatLocaleNumber(stirlingWorkJ, locale, 4) : "--";
 
   const onToggleStirling = () => {
     setStirlingEnabled((current) => {
@@ -846,7 +848,7 @@ export function App() {
                   <div><dt><ReportVariableLabel symbol="V" subscript="min" /></dt><dd><ReportValue value={formattedDerivedVMin} unit={<ReportUnitLabel text="cm³" />} /></dd></div>
                   <div><dt><ReportVariableLabel symbol="V" subscript="max" /></dt><dd><ReportValue value={formattedDerivedVMax} unit={<ReportUnitLabel text="cm³" />} /></dd></div>
                   <div><dt>{t.reportPixelAreaLabel}</dt><dd><ReportValue value={pixelArea > 0 ? pixelArea.toFixed(0) : "--"} /></dd></div>
-                  <div><dt>{t.reportMeasuredWorkLabel}</dt><dd><ReportValue value={formattedCalibratedArea} unit={<ReportUnitLabel text="mJ" />} /></dd></div>
+                  <div><dt>{t.reportMeasuredWorkLabel}</dt><dd><ReportValue value={formattedMeasuredWorkJ} unit={<ReportUnitLabel text="J" />} /></dd></div>
                   <div><dt>{t.reportIdealWorkLabel}</dt><dd><ReportValue value={formattedStirlingWork} unit={<ReportUnitLabel text="J" />} /></dd></div>
                 </dl>
               </article>
@@ -926,7 +928,7 @@ export function App() {
           <div className="calibration-row">
             <div className="calibration-grid">
               <div className="field-row compact-field">
-                <label htmlFor="delta-v">ΔV <Unit text="cm3" /></label>
+                <label htmlFor="delta-v"><DeltaVariable symbol="V" /> <Unit text="cm3" /></label>
                 <input id="delta-v" type="text" inputMode="decimal" value={deltaV} onChange={(event) => setDeltaV(event.target.value)} />
               </div>
               <div className="field-row compact-field">
@@ -1035,7 +1037,7 @@ export function App() {
             {stirlingEnabled ? (
               <div className="stirling-readout">
                 <span className="stirling-readout-label">{t.stirlingWorkLabel}</span>
-                <strong className="stirling-readout-value">{stirlingWorkJ !== null ? formatSigJ(stirlingWorkJ) : "--"}</strong>
+                <strong className="stirling-readout-value">{stirlingWorkJ !== null ? formatSigJ(stirlingWorkJ, locale) : "--"}</strong>
               </div>
             ) : null}
           </div>
@@ -1381,6 +1383,15 @@ function Variable({ symbol, subscript }: { symbol: string; subscript: string }) 
   );
 }
 
+function DeltaVariable({ symbol }: { symbol: string }) {
+  return (
+    <span className="scientific-label">
+      <span>Δ</span>
+      <em>{symbol}</em>
+    </span>
+  );
+}
+
 function Unit({ text }: { text: string }) {
   if (text === "cm3") {
     return <span className="unit-label">/ cm³</span>;
@@ -1409,7 +1420,10 @@ function ReportVariableLabel({
   if (symbol === "ΔV") {
     return (
       <math className="report-math" aria-label="Delta V">
-        <mi>ΔV</mi>
+        <mrow>
+          <mi mathvariant="normal">Δ</mi>
+          <mi>V</mi>
+        </mrow>
       </math>
     );
   }
@@ -1476,18 +1490,6 @@ function ReportValue({ value, unit }: { value: string; unit?: ReactNode }) {
       </mrow>
     </math>
   );
-}
-
-function formatSigValue(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "--";
-  }
-
-  if (value === 0) {
-    return "0";
-  }
-
-  return Number(value.toPrecision(4)).toString();
 }
 
 function getImagePoint(
@@ -1604,7 +1606,7 @@ function getStirlingWorkJ(input: {
   return workGraphUnits * 0.1;
 }
 
-function formatSigJ(value: number): string {
+function formatSigJ(value: number, locale: Locale): string {
   if (!Number.isFinite(value)) {
     return "--";
   }
@@ -1613,7 +1615,9 @@ function formatSigJ(value: number): string {
     return "0 J";
   }
 
-  return `${Number(value.toPrecision(4)).toString()} J`;
+  const rounded = Number(value.toPrecision(4));
+  const formatted = locale === "sv" ? rounded.toString().replace(".", ",") : rounded.toString();
+  return `${formatted} J`;
 }
 
 function mapPvToPlot(
